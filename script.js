@@ -165,23 +165,29 @@ async function wikiSummary(title) {
   return r.json();
 }
 
-/** Articles random d'une catégorie Wikipedia via SPARQL-like (API action) */
+/** Articles random d'une catégorie Wikipedia (namespace 0 = articles uniquement, pas sous-catégories) */
 async function wikiRandomInCategory(category, limit = 20) {
   const params = new URLSearchParams({
     action: "query",
     list: "categorymembers",
     cmtitle: `Catégorie:${category}`,
     cmtype: "page",
+    cmnamespace: "0",          // namespace 0 = articles uniquement, pas catégories ni listes
     cmlimit: String(limit),
-    cmsort: "timestamp",
-    cmdir: "desc",
+    cmsort: "sortkey",         // ordre alphabétique → plus varié que timestamp
     format: "json",
     origin: "*",
   });
   const r = await fetch(`${WIKI_API}?${params}`);
   if (!r.ok) throw new Error(`Wiki cat ${r.status}`);
   const d = await r.json();
-  return shuffle(d.query.categorymembers || []);
+  const pages = (d.query.categorymembers || []).filter(p =>
+    /* Filtre les listes, catégories résiduelles, ébauches */
+    !p.title.startsWith("Catégorie:") &&
+    !p.title.startsWith("Liste ") &&
+    !p.title.startsWith("Portail:")
+  );
+  return shuffle(pages);
 }
 
 /** Cherche les pages qui lient vers un article donné — utile pour trouver des distracteurs du même thème */
@@ -200,12 +206,16 @@ async function wikiSearch(query, limit = 10) {
   return d.query.search || [];
 }
 
-/** Nombre de vues Wikipedia d'un article sur les 30 derniers jours */
+/** Nombre de vues Wikipedia d'un article sur les 30 derniers jours (agrégat daily) */
 async function wikiPageviews(title) {
+  /* Format attendu par l'API daily : YYYYMMDD (pas d'heures) */
+  const pad   = n => String(n).padStart(2, "0");
+  const fmt   = d => `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
   const now   = new Date();
-  const end   = now.toISOString().slice(0, 10).replace(/-/g, "");
-  const start = new Date(now - 30 * 864e5).toISOString().slice(0, 10).replace(/-/g, "");
-  const url   = `${WIKI_VIEWS}/${encodeURIComponent(title)}/monthly/${start}00/${end}00`;
+  const end   = fmt(now);
+  const start = fmt(new Date(now - 30 * 864e5));
+  /* daily plutôt que monthly : plus fiable pour les fenêtres courtes */
+  const url = `${WIKI_VIEWS}/${encodeURIComponent(title)}/daily/${start}/${end}`;
   const r = await fetch(url);
   if (!r.ok) return 0;
   const d = await r.json();
@@ -376,66 +386,99 @@ const POP_CATEGORIES = [
   ["Pays_d'Asie", "Pays_d'Europe"],
 ];
 
-/* Stratégie : prend deux articles Wikipedia bien distincts
-   et compare leurs vraies pageviews sur 30 jours */
+/* Stratégie robuste : utilise l'API most-read de Wikipedia pour avoir de vrais articles populaires
+   avec leurs pageviews pré-calculées, puis compare deux d'entre eux */
 async function buildPopPair() {
-  /* On prend des articles bien connus via la catégorie Featured Articles */
-  const candidates = await wikiRandomInCategory("Article_de_qualité", 40);
-  if (candidates.length < 4) throw new Error("Pas assez d'articles");
+  /* most-read/fr/all-access/YYYY/MM/DD → top 100 articles du jour */
+  const pad  = n => String(n).padStart(2, "0");
+  const now  = new Date(Date.now() - 864e5); /* hier, pour s'assurer que la donnée existe */
+  const url  = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/fr.wikipedia/all-access`
+             + `/${now.getUTCFullYear()}/${pad(now.getUTCMonth() + 1)}/${pad(now.getUTCDate())}`;
 
-  const picked = shuffle(candidates).slice(0, 4);
-  const results = [];
-  for (const p of picked.slice(0, 2)) {
-    try {
-      const views = await wikiPageviews(p.title);
-      if (views > 0) results.push({ title: p.title, views });
-    } catch { /* skip */ }
-  }
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`most-read API ${r.status}`);
+  const d = await r.json();
 
-  if (results.length < 2) {
-    /* Fallback : retry avec d'autres articles */
-    for (const p of picked.slice(2)) {
-      try {
-        const views = await wikiPageviews(p.title);
-        if (views > 0) results.push({ title: p.title, views });
-      } catch { /* skip */ }
-    }
-  }
+  /* Filtre les pages parasites (Accueil, Spécial:, Wikipedia:, etc.) */
+  const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:)/i;
+  const articles = (d.items?.[0]?.articles || []).filter(a =>
+    !BLACKLIST.test(a.article) && a.views > 0
+  );
 
-  if (results.length < 2) throw new Error("Pas assez de données pageviews");
+  if (articles.length < 10) throw new Error("most-read: pas assez d'articles");
 
-  /* Trie pour que A soit le plus populaire */
-  results.sort((a, b) => b.views - a.views);
+  /* Prend deux articles bien séparés dans le classement pour maximiser l'écart de popularité */
+  const pool = articles.slice(0, 50);
+  const idxA = Math.floor(Math.random() * 15);            // top 15
+  const idxB = 15 + Math.floor(Math.random() * (pool.length - 15)); // 16e–50e
+
+  const artA = pool[idxA];
+  const artB = pool[idxB];
+
   return {
-    a: { title: results[0].title, views: results[0].views },
-    b: { title: results[1].title, views: results[1].views },
+    a: { title: artA.article.replaceAll("_", " "), views: artA.views },
+    b: { title: artB.article.replaceAll("_", " "), views: artB.views },
   };
 }
 
 /* ── Pool de monuments/lieux célèbres via catégorie Wikipedia ── */
 const LANDMARK_CATEGORIES = [
-  "Monument_historique_classé",
-  "Patrimoine_mondial",
-  "Château_fort",
-  "Cathédrale",
-  "Mosquée",
-  "Temple_bouddhiste",
-  "Pyramide",
+  "Patrimoine_mondial_en_France",
+  "Patrimoine_mondial_en_Italie",
+  "Patrimoine_mondial_en_Espagne",
+  "Patrimoine_mondial_en_Grèce",
+  "Patrimoine_mondial_en_Chine",
+  "Patrimoine_mondial_en_Inde",
+  "Patrimoine_mondial_au_Mexique",
+  "Patrimoine_mondial_au_Pérou",
+  "Patrimoine_mondial_en_Égypte",
+  "Patrimoine_mondial_en_Allemagne",
+  "Patrimoine_mondial_au_Royaume-Uni",
+  "Patrimoine_mondial_en_Turquie",
+  "Patrimoine_mondial_au_Japon",
+  "Patrimoine_mondial_au_Cambodge",
+  "Patrimoine_mondial_en_Russie",
 ];
 
+/* Map catégorie → pays (source de vérité, pas de parsing fragile) */
+const CAT_TO_COUNTRY = {
+  "Patrimoine_mondial_en_France":       "France",
+  "Patrimoine_mondial_en_Italie":       "Italie",
+  "Patrimoine_mondial_en_Espagne":      "Espagne",
+  "Patrimoine_mondial_en_Grèce":        "Grèce",
+  "Patrimoine_mondial_en_Chine":        "Chine",
+  "Patrimoine_mondial_en_Inde":         "Inde",
+  "Patrimoine_mondial_au_Mexique":      "Mexique",
+  "Patrimoine_mondial_au_Pérou":        "Pérou",
+  "Patrimoine_mondial_en_Égypte":       "Égypte",
+  "Patrimoine_mondial_en_Allemagne":    "Allemagne",
+  "Patrimoine_mondial_au_Royaume-Uni":  "Royaume-Uni",
+  "Patrimoine_mondial_en_Turquie":      "Turquie",
+  "Patrimoine_mondial_au_Japon":        "Japon",
+  "Patrimoine_mondial_au_Cambodge":     "Cambodge",
+  "Patrimoine_mondial_en_Russie":       "Russie",
+};
+
 async function getRandomLandmark() {
-  const cat   = LANDMARK_CATEGORIES[Math.floor(Math.random() * LANDMARK_CATEGORIES.length)];
-  const pages = await wikiRandomInCategory(cat, 30);
-  for (const p of shuffle(pages)) {
+  /* Mélange les catégories pour varier */
+  const cats = shuffle(LANDMARK_CATEGORIES);
+  for (const cat of cats) {
+    const country = CAT_TO_COUNTRY[cat];
+    if (!country) continue;
     try {
-      const summary = await wikiSummary(p.title);
-      if (!summary.thumbnail?.source) continue;
-      const country = extractCountryFromSummary(summary);
-      if (!country) continue;
-      return { summary, country };
-    } catch { /* skip */ }
+      const pages = await wikiRandomInCategory(cat, 20);
+      for (const p of pages) {
+        try {
+          const summary = await wikiSummary(p.title);
+          if (!summary.thumbnail?.source) continue;
+          /* Exclut les pages trop génériques */
+          if (summary.type === "disambiguation") continue;
+          return { summary, country };
+        } catch { /* skip */ }
+      }
+    } catch { /* essaie catégorie suivante */ }
   }
-  throw new Error("Aucun monument avec image et pays détectable");
+  throw new Error("Aucun monument avec image trouvé");
 }
 
 /* ════════════════════════════════════════════════════
