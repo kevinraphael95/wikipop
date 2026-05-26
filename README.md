@@ -1,1 +1,1 @@
-# wikigames
+https://kevinraphael95.github.io/wikigames/
