@@ -5,34 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>WikiGames</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
-  <script defer src="script.js"></script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 </head>
 <body>
+
+<div class="bg-grid" aria-hidden="true"></div>
+
 <div id="app">
-  <div class="header">
-    <div class="logo">Wiki<span>Games</span></div>
-    <div class="score-pill">
-      <i class="ti ti-trophy" aria-hidden="true"></i>
-      <strong id="hdr-score">0</strong>
-      <span class="sep">·</span>
-      <i class="ti ti-flame streak-fire" aria-hidden="true"></i>
-      <strong id="hdr-streak">0</strong>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-wiki">Wiki</span><span class="logo-games">Games</span>
+      <span class="logo-dot" aria-hidden="true"></span>
+    </div>
+    <div class="hdr-right">
+      <div class="pill" id="pill-score">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span id="hdr-score">0</span>
+      </div>
+      <div class="pill pill-fire" id="pill-streak">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c0 0-5 5-5 10a5 5 0 0 0 10 0c0-5-5-10-5-10zm0 13a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
+        <span id="hdr-streak">×0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats bar -->
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-val" id="sb-score">0</div>
+      <div class="stat-lbl">Points</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-val" id="sb-streak">0</div>
+      <div class="stat-lbl">Série</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-val" id="sb-best">0</div>
+      <div class="stat-lbl">Record</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-val" id="sb-rounds">0</div>
+      <div class="stat-lbl">Questions</div>
     </div>
   </div>
 
-  <div class="stats-grid">
-    <div class="stat-card"><div class="stat-val" id="sb-score">0</div><div class="stat-lbl">Points</div></div>
-    <div class="stat-card"><div class="stat-val" id="sb-streak">0</div><div class="stat-lbl">Série</div></div>
-    <div class="stat-card"><div class="stat-val" id="sb-best">0</div><div class="stat-lbl">Meilleure</div></div>
-    <div class="stat-card"><div class="stat-val" id="sb-rounds">0</div><div class="stat-lbl">Questions</div></div>
-  </div>
+  <!-- Mode selector -->
+  <nav class="modes" id="modes" role="tablist" aria-label="Modes de jeu">
+    <button class="mode-btn active" data-mode="which-country" role="tab" aria-selected="true">
+      <span class="mode-icon">📍</span> Pays
+    </button>
+    <button class="mode-btn" data-mode="before-after" role="tab" aria-selected="false">
+      <span class="mode-icon">📅</span> Chrono
+    </button>
+    <button class="mode-btn" data-mode="popularity" role="tab" aria-selected="false">
+      <span class="mode-icon">📊</span> Popularité
+    </button>
+    <button class="mode-btn" data-mode="true-false" role="tab" aria-selected="false">
+      <span class="mode-icon">❓</span> Vrai / Faux
+    </button>
+  </nav>
 
-  <div class="modes" id="modes"></div>
+  <!-- Card -->
+  <main class="card" id="card" role="region" aria-live="polite" aria-label="Question en cours"></main>
 
-  <div class="card" id="card" role="main" aria-live="polite"></div>
+  <!-- Footer -->
+  <footer class="footer">
+    Données · <a href="https://www.wikipedia.org" target="_blank" rel="noopener">Wikipédia</a> &amp; <a href="https://opentdb.com" target="_blank" rel="noopener">Open Trivia DB</a>
+  </footer>
+
 </div>
+
+<script src="script.js"></script>
 </body>
 </html>
