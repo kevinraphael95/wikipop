@@ -589,5 +589,3 @@ qs("#modes").querySelectorAll(".mode-btn").forEach(btn => {
 });
 
 loadQuestion();
-Claude est une IA et peut faire des erreurs. Veuillez vérifier les réponses.
-
