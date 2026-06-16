@@ -1,9 +1,9 @@
 "use strict";
 
-const WIKI_VIEWS   = "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/fr.wikipedia/all-access";
-const WIKI_API     = "https://fr.wikipedia.org/w/api.php";
-const COMMONS_API  = "https://commons.wikimedia.org/w/api.php";
-const BLACKLIST    = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:)/i;
+const WIKI_VIEWS  = "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/fr.wikipedia/all-access";
+const WIKI_API    = "https://fr.wikipedia.org/w/api.php";
+const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
+const BLACKLIST   = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:)/i;
 
 const state = { score: 0, streak: 0, best: 0, answered: false };
 let pool = [], winnerKey = "A", ld = null, rd = null;
@@ -12,7 +12,6 @@ const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString("fr-FR");
 const pad = n => String(n).padStart(2, "0");
 
-/* ── Fetch top articles ── */
 async function fetchPool() {
   const d = new Date(Date.now() - 86400000);
   const url = `${WIKI_VIEWS}/${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`;
@@ -24,7 +23,6 @@ async function fetchPool() {
     .slice(0, 100);
 }
 
-/* ── Fetch thumbnails from fr.wikipedia ── */
 async function fetchWikiImgs(titles) {
   const params = new URLSearchParams({
     action: "query", prop: "pageimages|info",
@@ -43,12 +41,11 @@ async function fetchWikiImgs(titles) {
   return map;
 }
 
-/* ── Fallback: search Wikimedia Commons for first image ── */
 async function fetchCommonsImg(query) {
   try {
     const params = new URLSearchParams({
       action: "query", list: "search",
-      srsearch: query, srnamespace: "6", // File namespace
+      srsearch: query, srnamespace: "6",
       srlimit: "3", format: "json", origin: "*",
     });
     const r = await fetch(COMMONS_API + "?" + params);
@@ -56,8 +53,6 @@ async function fetchCommonsImg(query) {
     const data = await r.json();
     const results = data.query?.search ?? [];
     if (!results.length) return null;
-
-    // Get thumbnail for first result
     const title = results[0].title;
     const p2 = new URLSearchParams({
       action: "query", prop: "imageinfo",
@@ -69,12 +64,9 @@ async function fetchCommonsImg(query) {
     const d2 = await r2.json();
     const pages = Object.values(d2.query?.pages ?? {});
     return pages[0]?.imageinfo?.[0]?.thumburl ?? null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-/* ── Resolve image: wiki thumbnail first, commons fallback ── */
 function findInMap(map, title) {
   if (map[title]) return map[title];
   const u = title.replaceAll(" ", "_");
@@ -87,11 +79,9 @@ function findInMap(map, title) {
 async function resolveImg(map, title) {
   const direct = findInMap(map, title);
   if (direct) return direct;
-  // Fallback: commons search with article title as query
   return await fetchCommonsImg(title);
 }
 
-/* ── UI helpers ── */
 function setCard(k, title, img) {
   $("title-" + k).textContent = title;
   $("num-" + k).textContent = "???";
@@ -116,7 +106,6 @@ function syncUI() {
   chip.className = "chip chip-streak" + (state.streak >= 3 ? " hot" : "");
 }
 
-/* ── Pick ── */
 function pick(chosen) {
   if (state.answered) return;
   state.answered = true;
@@ -152,12 +141,11 @@ function pick(chosen) {
   $("btn-next").classList.add("on");
 }
 
-/* ── Load question ── */
 async function loadQ() {
   state.answered = false;
   $("btn-next").classList.remove("on");
   $("feedback").className = "feedback";
-  $("feedback").textContent = "Cliquez sur un article pour voter.";
+  $("feedback").textContent = "";
 
   ["A", "B"].forEach(k => {
     const s = $("side-" + k);
@@ -165,23 +153,29 @@ async function loadQ() {
     $("title-" + k).textContent = "…";
     $("num-"   + k).textContent = "???";
     $("num-"   + k).classList.remove("shown");
+    $("imgel-" + k).style.display = "none";
+    $("ph-"    + k).style.display = "flex";
   });
 
   try {
-    if (pool.length < 20) pool = await fetchPool();
-    if (pool.length < 20) throw new Error("pool vide");
+    if (pool.length < 10) pool = await fetchPool();
+    if (pool.length < 2) throw new Error("pool vide");
 
-    const iA = Math.floor(Math.random() * 12);
-    const iB = 12 + Math.floor(Math.random() * Math.min(45, pool.length - 12));
+    // Vraiment aléatoire : deux index distincts dans tout le pool
+    let iA, iB;
+    do {
+      iA = Math.floor(Math.random() * pool.length);
+      iB = Math.floor(Math.random() * pool.length);
+    } while (iA === iB);
+
     const aA = pool[iA], aB = pool[iB];
+    // Retirer du pool (grand index en premier pour ne pas décaler)
     [iA, iB].sort((a, b) => b - a).forEach(i => pool.splice(i, 1));
 
     const tA = aA.article.replaceAll("_", " ");
     const tB = aB.article.replaceAll("_", " ");
 
     const wikiMap = await fetchWikiImgs([tA, tB]);
-
-    // Resolve images in parallel (with commons fallback)
     const [imgA, imgB] = await Promise.all([
       resolveImg(wikiMap, tA),
       resolveImg(wikiMap, tB),
