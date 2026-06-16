@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="app">
@@ -15,17 +15,15 @@
     <div class="brand">Wiki<span>Pop</span></div>
     <div class="hdr-right">
       <div class="pills">
-        <div class="pill" id="pill-score">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
           </svg>
           <span id="score">0</span>
         </div>
         <div class="pill pill-fire">🔥 <span id="streak">0</span></div>
       </div>
-      <button class="theme-toggle" id="theme-toggle" aria-label="Basculer thème sombre/clair" title="Thème sombre/clair">
-        🌙
-      </button>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Thème sombre/clair">🌙</button>
     </div>
   </header>
   <main id="main">
@@ -37,23 +35,20 @@
 </div>
 <script src="script.js"></script>
 <script>
-  (function() {
-    const btn = document.getElementById('theme-toggle');
-    const root = document.documentElement;
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-    // Init theme depuis localStorage ou préférence système
-    let current = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
+(function() {
+  const btn = document.getElementById('theme-toggle');
+  const root = document.documentElement;
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  let current = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
+  root.setAttribute('data-theme', current);
+  btn.textContent = current === 'dark' ? '☀️' : '🌙';
+  btn.addEventListener('click', () => {
+    current = current === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', current);
+    localStorage.setItem('theme', current);
     btn.textContent = current === 'dark' ? '☀️' : '🌙';
-
-    btn.addEventListener('click', () => {
-      current = current === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', current);
-      localStorage.setItem('theme', current);
-      btn.textContent = current === 'dark' ? '☀️' : '🌙';
-    });
-  })();
+  });
+})();
 </script>
 </body>
 </html>
