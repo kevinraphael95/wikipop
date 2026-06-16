@@ -7,26 +7,30 @@
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="app">
-  <div class="hdr">
+
+  <header class="hdr">
     <div class="brand">Wiki<span>Pop</span></div>
-    <div class="score-pills">
-      <div class="pill">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <span id="score">0</span> pts
+    <div class="pills">
+      <div class="pill" id="pill-score">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span id="score">0</span>
       </div>
-      <div class="pill pill-streak">
-        🔥 <span id="streak">0</span>
-      </div>
+      <div class="pill pill-fire">🔥 <span id="streak">0</span></div>
     </div>
-  </div>
+  </header>
+
   <main id="main">
-    <div class="loader"><div class="ring"></div><span>Chargement…</span></div>
+    <div class="loader"><div class="ring"></div>Chargement…</div>
   </main>
-  <footer class="footer">Données · <a href="https://fr.wikipedia.org" target="_blank" rel="noopener">Wikipédia français</a></footer>
+
+  <footer class="footer">
+    Données · <a href="https://fr.wikipedia.org" target="_blank" rel="noopener">Wikipédia</a>
+  </footer>
+
 </div>
 <script src="script.js"></script>
 </body>
