@@ -10,29 +10,27 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-<div id="app">
+<div id="app" data-theme="dark">
   <header class="hdr">
     <div class="logo">WikiPop<span class="logo-dot" id="logo-dot"></span></div>
     <div class="hdr-right">
       <div class="chip"><span class="chip-lbl">★</span><span id="score">0</span></div>
       <div class="chip chip-streak" id="streak-chip">🔥 <span id="streak">0</span></div>
-      <button class="toggle-btn" id="toggle-btn" title="Thème">🌙</button>
+      <button class="toggle-btn" id="toggle-btn" title="Thème">☀️</button>
     </div>
   </header>
 
   <div class="q-wrap">
-    <div class="q-tag">Question</div>
     <div class="q-text">Lequel a été le plus consulté <em>hier</em> sur Wikipédia ?</div>
   </div>
 
   <div class="duel">
     <button class="side" id="side-A" onclick="pick('A')">
-      <div class="side-img" id="img-A">
+      <div class="side-img">
         <img id="imgel-A" src="" alt="" style="display:none">
         <div class="no-img" id="ph-A">📄</div>
-        <div class="fade-overlay"></div>
-        <div class="choose-hint">Choisir →</div>
       </div>
+      <div class="choose-hint">Choisir →</div>
       <div class="side-footer">
         <div class="side-info">
           <div class="side-label">Article A</div>
@@ -48,12 +46,11 @@
     <div class="vs-col"><span class="vs-badge">VS</span></div>
 
     <button class="side" id="side-B" onclick="pick('B')">
-      <div class="side-img" id="img-B">
+      <div class="side-img">
         <img id="imgel-B" src="" alt="" style="display:none">
         <div class="no-img" id="ph-B">📄</div>
-        <div class="fade-overlay"></div>
-        <div class="choose-hint">Choisir →</div>
       </div>
+      <div class="choose-hint">Choisir →</div>
       <div class="side-footer">
         <div class="side-info">
           <div class="side-label">Article B</div>
@@ -67,7 +64,7 @@
     </button>
   </div>
 
-  <div class="feedback" id="feedback">Cliquez sur un article pour voter.</div>
+  <div class="feedback" id="feedback"></div>
 
   <div class="bottom">
     <button class="btn-next" id="btn-next" onclick="loadQ()">Suivant →</button>
@@ -78,11 +75,11 @@
 <script src="script.js"></script>
 <script>
 (function(){
-  const btn = document.getElementById('toggle-btn');
-  const app = document.getElementById('app');
-  const dot = document.getElementById('logo-dot');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  let dark = localStorage.getItem('theme') !== 'light' && (localStorage.getItem('theme') === 'dark' || prefersDark);
+  const btn  = document.getElementById('toggle-btn');
+  const app  = document.getElementById('app');
+  const dot  = document.getElementById('logo-dot');
+  const pref = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  let dark   = localStorage.getItem('theme') !== 'light' && (localStorage.getItem('theme') === 'dark' || pref);
   function apply() {
     app.setAttribute('data-theme', dark ? 'dark' : 'light');
     btn.textContent = dark ? '☀️' : '🌙';
