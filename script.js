@@ -61,19 +61,16 @@ function sideHTML(side) {
       <div class="side-body">
         <div class="side-title">${esc(side.title)}</div>
         <div class="side-hint">Vues hier</div>
-        <div class="views-wrap" id="views-${side.key}">
-          <div class="views-num" id="num-${side.key}">?</div>
+        <div class="views-wrap">
+          <div class="views-num" id="num-${side.key}">???</div>
           <div class="views-label">vues</div>
-          <div class="bar-track"><div class="bar-fill" id="bar-${side.key}"></div></div>
         </div>
       </div>
     </button>`;
 }
 
 function renderArena(left, right, winnerKey) {
-  const total   = left.views + right.views;
-  const leftPct = Math.round((left.views / total) * 100);
-  const rightPct = 100 - leftPct;
+
 
   // Tout dans #main, structuré en duel-wrapper qui flex sur la hauteur restante
   setMain(`
@@ -105,13 +102,13 @@ function renderArena(left, right, winnerKey) {
 
   [left, right].forEach(side => {
     qs(`#side-${side.key}`).onclick = () =>
-      reveal(side.key, winnerKey, left, right, leftPct, rightPct);
+      reveal(side.key, winnerKey, left, right);
   });
 
   qs("#btn-next").onclick = loadQuestion;
 }
 
-function reveal(chosen, winnerKey, left, right, leftPct, rightPct) {
+function reveal(chosen, winnerKey, left, right) {
   if (state.answered) return;
   state.answered = true;
 
@@ -133,15 +130,10 @@ function reveal(chosen, winnerKey, left, right, leftPct, rightPct) {
     btn.disabled = true;
     btn.classList.add(side.key === winnerKey ? "correct" : "wrong");
 
-    const pct   = side.key === left.key ? leftPct : rightPct;
-    const vw    = qs(`#views-${side.key}`);
-    if (vw) vw.style.display = "flex";
     const numEl = qs(`#num-${side.key}`);
-    if (numEl) numEl.textContent = fmtNum(side.views);
-    const barEl = qs(`#bar-${side.key}`);
-    if (barEl) {
-      if (side.key === winnerKey) barEl.classList.add("winner");
-      requestAnimationFrame(() => setTimeout(() => { barEl.style.width = pct + "%"; }, 60));
+    if (numEl) {
+      numEl.textContent = fmtNum(side.views);
+      numEl.classList.add("revealed");
     }
   });
 
