@@ -131,17 +131,18 @@ body {
   width: 100%;
   aspect-ratio: 3/2;
   overflow: hidden;
-  background: #161616;
+  background: #0d0d0d;
   flex-shrink: 0;
 }
 .side-img {
   width: 100%; height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center center;
   display: block;
-  transition: transform .5s ease, opacity .3s;
-  opacity: .85;
+  transition: opacity .3s;
+  opacity: .9;
 }
-.side:hover:not(:disabled):not(.revealed) .side-img { opacity: 1; transform: scale(1.03); }
+.side:hover:not(:disabled):not(.revealed) .side-img { opacity: 1; }
 .no-img {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
@@ -209,17 +210,18 @@ body {
   font-size: 11px; font-weight: 800; letter-spacing: .04em; color: var(--muted2);
 }
 
-/* Feedback */
+/* Feedback — bulle flottante, sans lien visuel avec le duel */
 .feedback {
   display: none;
-  padding: 14px 20px;
+  padding: 13px 20px;
   font-size: 13px; font-weight: 600; text-align: center;
-  border: 1px solid var(--border); border-top: none;
-  border-radius: 0 0 16px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  margin: 12px 0 0;
   line-height: 1.5;
 }
-.feedback.ok { display: block; background: var(--green-bg); color: var(--green); border-color: rgba(34,197,94,.2); }
-.feedback.ko { display: block; background: var(--red-bg);   color: var(--red);   border-color: rgba(239,68,68,.2); }
+.feedback.ok { display: block; background: var(--green-bg); color: var(--green); border-color: rgba(34,197,94,.25); }
+.feedback.ko { display: block; background: var(--red-bg);   color: var(--red);   border-color: rgba(239,68,68,.25); }
 
 /* Bottom bar */
 .bottom-bar {
