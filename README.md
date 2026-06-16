@@ -1,1 +1,1 @@
-https://kevinraphael95.github.io/wikigames/
+https://kevinraphael95.github.io/wikipop/
