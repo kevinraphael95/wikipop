@@ -3,7 +3,7 @@
 const WIKI_VIEWS  = "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/fr.wikipedia/all-access";
 const WIKI_API    = "https://fr.wikipedia.org/w/api.php";
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
-const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Liste_)/i;
+const BLACKLIST   = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Liste_|Décès_|Décès |Mort_|Mort )/i;
 
 const state = { score: 0, streak: 0, best: 0, answered: false, round: 0 };
 let pool = [], winnerKey = "A", ld = null, rd = null;
