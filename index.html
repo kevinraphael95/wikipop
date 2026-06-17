@@ -1,36 +1,55 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>WikiPop</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>WikiPop</title>
+<link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="app" data-theme="dark">
   <header class="hdr">
-    <div class="logo">WikiPop<span class="logo-dot" id="logo-dot"></span></div>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6" stroke="#0a0a0a" stroke-width="1.8"/>
+          <path d="M8 2C8 2 5 5 5 8s3 6 3 6" stroke="#0a0a0a" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M8 2C8 2 11 5 11 8s-3 6-3 6" stroke="#0a0a0a" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="#0a0a0a" stroke-width="1.4" stroke-linecap="round"/>
+          <line x1="3" y1="5.5" x2="13" y2="5.5" stroke="#0a0a0a" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="3" y1="10.5" x2="13" y2="10.5" stroke="#0a0a0a" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="logo-name">WikiPop</span>
+      <span class="logo-beta">Beta</span>
+    </div>
     <div class="hdr-right">
-      <div class="chip"><span class="chip-lbl">★</span><span id="score">0</span></div>
-      <div class="chip chip-streak" id="streak-chip">🔥 <span id="streak">0</span></div>
-      <button class="toggle-btn" id="toggle-btn" title="Thème">☀️</button>
+      <div class="chip"><span class="chip-lbl">Score</span><span id="score">0</span></div>
+      <div class="chip chip-streak" id="streak-chip"><span class="streak-icon">🔥</span><span id="streak">0</span></div>
+      <button class="tbtn" id="toggle-btn" title="Changer de thème" aria-label="Changer de thème">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
     </div>
   </header>
 
+  <div class="prog-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+
   <div class="q-wrap">
-    <div class="q-text">Lequel a été le plus consulté <em>hier</em> sur Wikipédia ?</div>
+    <div class="q-text">Lequel a été le plus consulté <strong>hier</strong> sur Wikipédia ?</div>
   </div>
 
-  <div class="duel">
-    <button class="side" id="side-A" onclick="pick('A')">
+  <div class="duel" id="duel">
+    <button class="side" id="side-A" aria-label="Choisir l'article A">
       <div class="side-img">
+        <div class="img-shimmer" id="shimA">Chargement</div>
         <img id="imgel-A" src="" alt="" style="display:none">
-        <div class="no-img" id="ph-A">📄</div>
+        <div class="no-img" id="ph-A" style="display:none">📄</div>
       </div>
-      <div class="choose-hint">Choisir →</div>
+      <div class="choose-hint">Choisir</div>
+      <div class="ribbon">✓ Gagnant</div>
       <div class="side-footer">
         <div class="side-info">
           <div class="side-label">Article A</div>
@@ -42,15 +61,15 @@
         </div>
       </div>
     </button>
-
     <div class="vs-col"><span class="vs-badge">VS</span></div>
-
-    <button class="side" id="side-B" onclick="pick('B')">
+    <button class="side" id="side-B" aria-label="Choisir l'article B">
       <div class="side-img">
+        <div class="img-shimmer" id="shimB">Chargement</div>
         <img id="imgel-B" src="" alt="" style="display:none">
-        <div class="no-img" id="ph-B">📄</div>
+        <div class="no-img" id="ph-B" style="display:none">📄</div>
       </div>
-      <div class="choose-hint">Choisir →</div>
+      <div class="choose-hint">Choisir</div>
+      <div class="ribbon">✓ Gagnant</div>
       <div class="side-footer">
         <div class="side-info">
           <div class="side-label">Article B</div>
@@ -64,27 +83,40 @@
     </button>
   </div>
 
-  <div class="feedback" id="feedback"></div>
+  <div class="feedback loading" id="feedback">Chargement des articles…</div>
 
   <div class="bottom">
-    <button class="btn-next" id="btn-next" onclick="loadQ()">Suivant →</button>
+    <div class="stats-mini">Meilleur streak : <span id="best">0</span></div>
+    <button class="btn-next" id="btn-next">
+      Suivant
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
   </div>
 
-  <footer class="foot">Données · <a href="https://fr.wikipedia.org" target="_blank" rel="noopener">Wikipédia fr</a></footer>
+  <footer class="foot">
+    Données · <a href="https://fr.wikipedia.org" target="_blank" rel="noopener">Wikipédia fr</a>
+    <span class="foot-dot">·</span>
+    <a href="https://wikimedia.org/api/rest_v1/" target="_blank" rel="noopener">API Wikimédia</a>
+  </footer>
 </div>
 <script src="script.js"></script>
 <script>
 (function(){
-  const btn  = document.getElementById('toggle-btn');
   const app  = document.getElementById('app');
-  const dot  = document.getElementById('logo-dot');
+  const btn  = document.getElementById('toggle-btn');
   const pref = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  let dark   = localStorage.getItem('theme') !== 'light' && (localStorage.getItem('theme') === 'dark' || pref);
+  let dark   = localStorage.getItem('wp-theme') !== 'light' && (localStorage.getItem('wp-theme') === 'dark' || pref);
+
+  const sunIcon  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+  const moonIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+
   function apply() {
-    app.setAttribute('data-theme', dark ? 'dark' : 'light');
-    btn.textContent = dark ? '☀️' : '🌙';
-    dot.style.background = dark ? '#d4f15a' : '#3a7d00';
-    localStorage.setItem('theme', dark ? 'dark' : 'light');
+    const theme = dark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    app.setAttribute('data-theme', theme);
+    btn.innerHTML = dark ? sunIcon : moonIcon;
+    btn.setAttribute('aria-label', dark ? 'Passer en mode clair' : 'Passer en mode sombre');
+    localStorage.setItem('wp-theme', theme);
   }
   apply();
   btn.addEventListener('click', () => { dark = !dark; apply(); });
