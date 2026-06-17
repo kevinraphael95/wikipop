@@ -3,7 +3,7 @@
 const WIKI_VIEWS  = "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/fr.wikipedia/all-access";
 const WIKI_API    = "https://fr.wikipedia.org/w/api.php";
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
-const BLACKLIST   = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:)/i;
+const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Liste_)/i;
 
 const state = { score: 0, streak: 0, best: 0, answered: false, round: 0 };
 let pool = [], winnerKey = "A", ld = null, rd = null;
@@ -19,7 +19,7 @@ async function fetchPool() {
   if (!r.ok) throw new Error("pageviews " + r.status);
   const data = await r.json();
   return (data.items?.[0]?.articles ?? [])
-    .filter(a => !BLACKLIST.test(a.article) && a.views > 0)
+    .filter(a => !BLACKLIST.test(a.article) && a.views > 0 && !a.article.includes('.'))
     .slice(0, 100);
 }
 
