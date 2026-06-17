@@ -5,7 +5,7 @@ const WIKI_API    = "https://fr.wikipedia.org/w/api.php";
 const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const BLACKLIST   = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:)/i;
 
-const state = { score: 0, streak: 0, best: 0, answered: false };
+const state = { score: 0, streak: 0, best: 0, answered: false, round: 0 };
 let pool = [], winnerKey = "A", ld = null, rd = null;
 
 const $ = id => document.getElementById(id);
@@ -86,30 +86,33 @@ function setCard(k, title, img) {
   $("title-" + k).textContent = title;
   $("num-" + k).textContent = "???";
   $("num-" + k).classList.remove("shown");
-  const el = $("imgel-" + k);
-  const ph = $("ph-" + k);
+  const el = $("imgel-" + k), ph = $("ph-" + k), shim = $("shim" + k);
+  shim.style.display = "none";
   if (img) {
-    el.src = img; el.alt = title;
     el.style.display = "block"; ph.style.display = "none";
+    el.src = img; el.alt = title;
     el.onerror = () => { el.style.display = "none"; ph.style.display = "flex"; };
   } else {
     el.style.display = "none"; ph.style.display = "flex";
   }
   const s = $("side-" + k);
   s.className = "side"; s.disabled = false;
+  s.setAttribute("aria-label", "Choisir : " + title);
 }
 
 function syncUI() {
   $("score").textContent  = state.score;
   $("streak").textContent = state.streak;
+  $("best").textContent   = state.best;
   const chip = $("streak-chip");
   chip.className = "chip chip-streak" + (state.streak >= 3 ? " hot" : "");
+  const prog = Math.min((state.round % 10) / 10 * 100, 100);
+  $("prog-bar").style.width = prog + "%";
 }
 
 function pick(chosen) {
   if (state.answered) return;
   state.answered = true;
-
   const ok = chosen === winnerKey;
   if (ok) {
     state.score  += 10 + state.streak * 2;
@@ -118,6 +121,7 @@ function pick(chosen) {
   } else {
     state.streak = 0;
   }
+  state.round++;
   syncUI();
 
   ["A", "B"].forEach(k => {
@@ -133,19 +137,25 @@ function pick(chosen) {
   const w = winnerKey === "A" ? ld : rd;
   const l = winnerKey === "A" ? rd : ld;
   const fb = $("feedback");
-  fb.className = "feedback " + (ok ? "ok" : "ko");
-  fb.textContent = ok
-    ? `✓ Bien joué ! « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`
-    : `✗ C'était « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
-
+  if (ok) {
+    fb.className = "feedback ok";
+    fb.textContent = `✓ Bien joué ! « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
+  } else {
+    fb.className = "feedback ko";
+    fb.textContent = `✗ C'était « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
+  }
   $("btn-next").classList.add("on");
 }
 
 async function loadQ() {
   state.answered = false;
   $("btn-next").classList.remove("on");
-  $("feedback").className = "feedback";
-  $("feedback").textContent = "";
+  $("feedback").className = "feedback loading";
+  $("feedback").textContent = "Chargement des articles…";
+
+  const duel = $("duel");
+  duel.style.animation = "none";
+  requestAnimationFrame(() => { duel.style.animation = ""; });
 
   ["A", "B"].forEach(k => {
     const s = $("side-" + k);
@@ -154,14 +164,14 @@ async function loadQ() {
     $("num-"   + k).textContent = "???";
     $("num-"   + k).classList.remove("shown");
     $("imgel-" + k).style.display = "none";
-    $("ph-"    + k).style.display = "flex";
+    $("ph-"    + k).style.display = "none";
+    $("shim"   + k).style.display = "flex";
   });
 
   try {
     if (pool.length < 10) pool = await fetchPool();
     if (pool.length < 2) throw new Error("pool vide");
 
-    // Vraiment aléatoire : deux index distincts dans tout le pool
     let iA, iB;
     do {
       iA = Math.floor(Math.random() * pool.length);
@@ -169,7 +179,6 @@ async function loadQ() {
     } while (iA === iB);
 
     const aA = pool[iA], aB = pool[iB];
-    // Retirer du pool (grand index en premier pour ne pas décaler)
     [iA, iB].sort((a, b) => b - a).forEach(i => pool.splice(i, 1));
 
     const tA = aA.article.replaceAll("_", " ");
@@ -190,15 +199,23 @@ async function loadQ() {
 
     setCard("A", ld.title, ld.img);
     setCard("B", rd.title, rd.img);
+    $("feedback").className = "feedback";
+    $("feedback").textContent = "";
 
   } catch (e) {
     console.error(e);
     $("feedback").className = "feedback ko";
     $("feedback").textContent = "⚡ Erreur de chargement. Vérifiez votre connexion.";
     $("btn-next").classList.add("on");
+    ["A", "B"].forEach(k => {
+      $("shim" + k).style.display = "none";
+      $("ph-"  + k).style.display = "flex";
+    });
   }
 }
 
-window.loadQ = loadQ;
-window.pick  = pick;
+document.getElementById("side-A").addEventListener("click", () => pick("A"));
+document.getElementById("side-B").addEventListener("click", () => pick("B"));
+document.getElementById("btn-next").addEventListener("click", loadQ);
+
 loadQ();
