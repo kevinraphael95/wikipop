@@ -214,12 +214,15 @@ function pick(chosen) {
   }
 
   $("btn-next").classList.add("on");
+  $("btn-next").disabled = false;
 }
 
 /* ── Load question ── */
 async function loadQ() {
   state.answered = false;
-  $("btn-next").classList.remove("on");
+  const nextBtn = $("btn-next");
+  nextBtn.classList.remove("on");
+  nextBtn.disabled = true;
 
   const fb = $("feedback");
   fb.className   = "feedback loading";
@@ -280,7 +283,8 @@ async function loadQ() {
     console.error(err);
     fb.className   = "feedback ko";
     fb.textContent = "⚡ Erreur de chargement. Vérifiez votre connexion.";
-    $("btn-next").classList.add("on");
+    nextBtn.classList.add("on");
+    nextBtn.disabled = false;
     for (const k of ["A", "B"]) {
       $(`shim${k}`).style.display = "none";
       $(`ph-${k}`).style.display  = "flex";
