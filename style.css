@@ -187,8 +187,15 @@ body {
 .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ── Progress ── */
-.prog-wrap {
+.prog-row {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prog-wrap {
+  flex: 1;
   height: 3px;
   background: var(--s3);
   border-radius: 999px;
@@ -201,6 +208,16 @@ body {
   border-radius: 999px;
   width: 0;
   transition: width .4s var(--ease);
+}
+
+.prog-pct {
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Duel ── */
@@ -512,10 +529,10 @@ body {
   .hdr-right { order: 2; }
 
   .q-text {
-      order: 3;
-      flex: 1 1 100%;
-      font-size: clamp(14px, 4.2vw, 17px);
-    }
+    order: 3;
+    flex: 1 1 100%;
+    font-size: clamp(14px, 4.2vw, 17px);
+  }
 
   .side-title {
     font-size: clamp(16px, 5vw, 20px);
