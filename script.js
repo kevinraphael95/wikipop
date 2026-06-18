@@ -152,7 +152,7 @@ function pick(chosen) {
     fb.textContent = mobile ? `✓ Bien joué !` : `✓ Bien joué ! « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
   } else {
     fb.className = "feedback ko";
-    fb.textContent = mobile ? `✗ C'était « ${w.title} »` : `✗ C'était « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
+    fb.textContent = mobile ? `✗ Dommage !` : `✗ C'était « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
   }
   $("btn-next").classList.add("on");
 }
