@@ -127,11 +127,11 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
+  padding: 7px 16px;
   border: 1px solid var(--border2);
   background: var(--surface);
   border-radius: 999px;
-  font-size: clamp(11px,1.6vw,13px);
+  font-size: clamp(13px,1.8vw,16px);
   font-weight: 700;
   color: var(--text);
   transition: all .2s;
@@ -158,7 +158,7 @@ body {
 }
 
 .tbtn {
-  width: 32px; height: 32px;
+  width: 40px; height: 40px;
   border-radius: 999px;
   border: 1px solid var(--border2);
   background: var(--surface);
