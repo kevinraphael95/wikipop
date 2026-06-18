@@ -1,11 +1,28 @@
 (function () {
   const app = document.getElementById("app");
   const btn = document.getElementById("toggle-btn");
-
   const SUN  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
   const MOON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 
-  const stored = localStorage.getItem("wp-theme");
+  // STORAGE_KEY vient de script.js (chargé avant ce fichier, même portée globale)
+
+  function readTheme() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw).theme : null;
+    } catch { return null; }
+  }
+
+  function writeTheme(theme) {
+    try {
+      const raw  = localStorage.getItem(STORAGE_KEY);
+      const prev = raw ? JSON.parse(raw) : {};
+      prev.theme = theme;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(prev));
+    } catch { /* quota plein / mode privé : tant pis */ }
+  }
+
+  const stored = readTheme();
   let dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   function apply() {
@@ -14,7 +31,7 @@
     app.setAttribute("data-theme", theme);
     btn.innerHTML = dark ? SUN : MOON;
     btn.setAttribute("aria-label", dark ? "Passer en mode clair" : "Passer en mode sombre");
-    localStorage.setItem("wp-theme", theme);
+    writeTheme(theme);
   }
 
   apply();
