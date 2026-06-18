@@ -512,10 +512,10 @@ body {
   .hdr-right { order: 2; }
 
   .q-text {
-    order: 3;
-    flex: 1 1 100%;
-    font-size: 12.5px;
-  }
+      order: 3;
+      flex: 1 1 100%;
+      font-size: clamp(14px, 4.2vw, 17px);
+    }
 
   .side-title {
     font-size: clamp(16px, 5vw, 20px);
