@@ -42,7 +42,7 @@ async function fetchPool() {
 async function fetchWikiImgs(titles) {
   const params = new URLSearchParams({
     action: "query", prop: "pageimages|info",
-    piprop: "thumbnail", pithumbsize: "800",
+    piprop: "thumbnail|original", pithumbsize: "800",
     inprop: "url", titles: titles.join("|"),
     format: "json", origin: "*",
   });
@@ -51,10 +51,14 @@ async function fetchWikiImgs(titles) {
   const data = await r.json();
 
   const map = {};
-  for (const p of Object.values(data.query?.pages ?? {}))
-    map[p.title] = p.thumbnail?.source ?? null;
+  for (const p of Object.values(data.query?.pages ?? {})) {
+    const orig = p.original;
+    const thumb = p.thumbnail;
+    const okRes = orig && orig.width >= 300 && orig.height >= 300;
+    map[p.title] = okRes ? (thumb?.source ?? null) : null;
+  }
   for (const n of data.query?.normalized ?? [])
-    if (map[n.to]) map[n.from] = map[n.to];
+    if (map[n.to] !== undefined) map[n.from] = map[n.to];
   return map;
 }
 
