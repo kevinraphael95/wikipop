@@ -101,9 +101,8 @@ function setCard(k, title, img) {
 }
 
 function syncUI() {
-  $("score").textContent  = state.score;
-  $("streak").textContent = state.streak;
   $("best").textContent   = state.best;
+  $("streak").textContent = state.streak;
   const chip = $("streak-chip");
   chip.className = "chip chip-streak" + (state.streak >= 3 ? " hot" : "");
   const prog = Math.min((state.round % 10) / 10 * 100, 100);
