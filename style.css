@@ -8,7 +8,7 @@
   --border2:   rgba(255,255,255,0.11);
   --text:      #f2efe8;
   --muted:     rgba(242,239,232,0.50);
-  --dim:       rgba(242,239,232,0.22);
+  --dim:       #f2efe8;
   --accent:    #c8f135;
   --accent2:   #a8d420;
   --accent-fg: #0a0a0a;
@@ -32,7 +32,7 @@
   --border2:   rgba(0,0,0,0.10);
   --text:      #111111;
   --muted:     rgba(17,17,17,0.50);
-  --dim:       rgba(17,17,17,0.25);
+  --dim:       #111111;
   --accent:    #2d6a00;
   --accent2:   #3a8200;
   --accent-fg: #ffffff;
