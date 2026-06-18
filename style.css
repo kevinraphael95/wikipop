@@ -395,7 +395,9 @@ body {
 /* ── Bottom ── */
 .bottom {
   flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   height: clamp(38px,5vh,48px);
 }
 
