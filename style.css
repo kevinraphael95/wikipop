@@ -190,7 +190,7 @@ body {
 /* ── Question ── */
 .q-wrap { flex-shrink: 0; text-align: center; }
 .q-text {
-  font-size: clamp(12px,1.8vw,16px);
+  font-size: clamp(15px,2.2vw,22px);
   font-weight: 600;
   color: var(--muted);
   letter-spacing: -.1px;
