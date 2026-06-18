@@ -25,7 +25,11 @@ function loadState() {
 
 function saveState() {
   try {
+    let prev = {};
+    try { prev = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { /* rien à fusionner */ }
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...prev,
       stats: {
         streak: state.streak, best: state.best,
         round: state.round, correct: state.correct,
