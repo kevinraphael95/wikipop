@@ -6,12 +6,36 @@ const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 
 const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Décès_|Décès |Mort_|Mort )/i;
 
+const STORAGE_KEY = "wikipop-stats";
+
 const state = { streak: 0, best: 0, answered: false, round: 0, correct: 0 };
 let pool = [], winnerKey = "A", ld = null, rd = null;
 
 const $   = id => document.getElementById(id);
 const fmt = n  => Math.round(n).toLocaleString("fr-FR");
 const pad = n  => String(n).padStart(2, "0");
+
+/* ── Persistance scores ── */
+function loadStats() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    state.streak  = Number(saved.streak)  || 0;
+    state.best    = Number(saved.best)    || 0;
+    state.round   = Number(saved.round)   || 0;
+    state.correct = Number(saved.correct) || 0;
+  } catch { /* localStorage indispo ou corrompu : on repart de zéro */ }
+}
+
+function saveStats() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      streak: state.streak, best: state.best,
+      round: state.round, correct: state.correct,
+    }));
+  } catch { /* quota plein / mode privé : tant pis */ }
+}
 
 /* ── Pool : top pageviews 7 derniers jours ── */
 async function fetchPool() {
@@ -143,6 +167,8 @@ function syncUI() {
   prog.style.width = `${pct}%`;
   prog.closest("[role=progressbar]")?.setAttribute("aria-valuenow", pct);
   $("prog-pct").textContent = `${pct}%`;
+
+  saveStats();
 }
 
 /* ── Pick ── */
@@ -267,4 +293,6 @@ $("side-A").addEventListener("click", () => pick("A"));
 $("side-B").addEventListener("click", () => pick("B"));
 $("btn-next").addEventListener("click", loadQ);
 
+loadStats();
+syncUI();
 loadQ();
