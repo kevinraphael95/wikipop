@@ -342,14 +342,9 @@ body {
 .side.wrong   .side-footer { background: var(--red-bg); }
 
 .side-info { flex: 1; min-width: 0; }
-.side-label {
-  font-size: clamp(9px,1.2vw,10px);
-  font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase;
-  color: var(--dim); margin-bottom: 4px;
-}
+.side-label { display: none; }
 .side-title {
-  font-size: clamp(11px,1.7vw,16px);
+  font-size: clamp(14px,2vw,20px);
   font-weight: 700; color: var(--text);
   line-height: 1.25; letter-spacing: -.15px;
   display: -webkit-box; -webkit-line-clamp: 2;
@@ -378,17 +373,18 @@ body {
 
 /* ── Feedback ── */
 .feedback {
-  flex-shrink: 0;
-  min-height: clamp(34px,4.5vh,46px);
-  display: flex; align-items: center; justify-content: center;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex; align-items: center;
   border-radius: var(--r2);
   border: 1px solid transparent;
   font-size: clamp(11px,1.5vw,13px);
   font-weight: 500;
-  text-align: center; line-height: 1.4;
-  padding: 0 clamp(12px,2vw,18px);
+  padding: 0 clamp(10px,1.5vw,14px);
   transition: all .25s var(--ease);
   background: transparent; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .feedback.ok  { background: var(--green-bg); color: var(--green); border-color: var(--green-bd); }
 .feedback.ko  { background: var(--red-bg);   color: var(--red);   border-color: var(--red-bd); }
@@ -397,12 +393,9 @@ body {
 /* ── Bottom ── */
 .bottom {
   flex-shrink: 0;
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; align-items: center; gap: 10px;
+  height: clamp(38px,5vh,48px);
 }
-.stats-mini {
-  font-size: 11px; color: var(--dim); font-weight: 600; letter-spacing: .04em;
-}
-.stats-mini span { color: var(--muted); }
 
 .btn-next {
   display: flex; align-items: center; gap: 6px;
