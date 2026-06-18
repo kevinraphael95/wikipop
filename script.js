@@ -6,7 +6,7 @@ const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 
 const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Décès_|Décès |Mort_|Mort )/i;
 
-const state = { streak: 0, best: 0, answered: false, round: 0 };
+const state = { streak: 0, best: 0, answered: false, round: 0, correct: 0 };
 let pool = [], winnerKey = "A", ld = null, rd = null;
 
 const $   = id => document.getElementById(id);
@@ -138,9 +138,11 @@ function syncUI() {
   const chip = $("streak-chip");
   chip.className = "chip chip-streak" + (state.streak >= 3 ? " hot" : "");
 
+  const pct = state.round > 0 ? Math.round((state.correct / state.round) * 100) : 0;
   const prog = $("prog-bar");
-  prog.style.width = `${Math.min((state.round % 10) / 10 * 100, 100)}%`;
-  prog.closest("[role=progressbar]")?.setAttribute("aria-valuenow", state.round % 10 * 10);
+  prog.style.width = `${pct}%`;
+  prog.closest("[role=progressbar]")?.setAttribute("aria-valuenow", pct);
+  $("prog-pct").textContent = `${pct}%`;
 }
 
 /* ── Pick ── */
@@ -150,8 +152,9 @@ function pick(chosen) {
 
   const ok = chosen === winnerKey;
   if (ok) {
-    state.streak = state.streak + 1;
-    state.best   = Math.max(state.best, state.streak);
+    state.streak  = state.streak + 1;
+    state.best    = Math.max(state.best, state.streak);
+    state.correct = state.correct + 1;
   } else {
     state.streak = 0;
   }
