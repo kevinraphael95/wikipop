@@ -6,33 +6,37 @@ const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 
 const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Décès_|Décès |Mort_|Mort )/i;
 
-const STORAGE_KEY = "wikipop-stats";
+const STORAGE_KEY = "wikipop-state";
 
 const state = { streak: 0, best: 0, answered: false, round: 0, correct: 0 };
-let pool = [], winnerKey = "A", ld = null, rd = null;
+let pool = [], winnerKey = "A", ld = null, rd = null, chosenKey = null;
 
 const $   = id => document.getElementById(id);
 const fmt = n  => Math.round(n).toLocaleString("fr-FR");
 const pad = n  => String(n).padStart(2, "0");
 
-/* ── Persistance scores ── */
-function loadStats() {
+/* ── Persistance (stats + question en cours, même clé) ── */
+function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const saved = JSON.parse(raw);
-    state.streak  = Number(saved.streak)  || 0;
-    state.best    = Number(saved.best)    || 0;
-    state.round   = Number(saved.round)   || 0;
-    state.correct = Number(saved.correct) || 0;
-  } catch { /* localStorage indispo ou corrompu : on repart de zéro */ }
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
 }
 
-function saveStats() {
+function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      streak: state.streak, best: state.best,
-      round: state.round, correct: state.correct,
+      stats: {
+        streak: state.streak, best: state.best,
+        round: state.round, correct: state.correct,
+      },
+      current: (ld && rd) ? {
+        answered: state.answered,
+        chosenKey,
+        winnerKey,
+        left:  ld,
+        right: rd,
+      } : null,
     }));
   } catch { /* quota plein / mode privé : tant pis */ }
 }
@@ -167,26 +171,10 @@ function syncUI() {
   prog.style.width = `${pct}%`;
   prog.closest("[role=progressbar]")?.setAttribute("aria-valuenow", pct);
   $("prog-pct").textContent = `${pct}%`;
-
-  saveStats();
 }
 
-/* ── Pick ── */
-function pick(chosen) {
-  if (state.answered) return;
-  state.answered = true;
-
-  const ok = chosen === winnerKey;
-  if (ok) {
-    state.streak  = state.streak + 1;
-    state.best    = Math.max(state.best, state.streak);
-    state.correct = state.correct + 1;
-  } else {
-    state.streak = 0;
-  }
-  state.round++;
-  syncUI();
-
+/* ── Affiche le résultat (utilisé après un clic ET après une restauration) ── */
+function showResult() {
   for (const k of ["A", "B"]) {
     const s = $(`side-${k}`);
     s.disabled = true;
@@ -200,6 +188,7 @@ function pick(chosen) {
   const l  = winnerKey === "A" ? rd : ld;
   const fb = $("feedback");
   const mobile = window.innerWidth <= 560;
+  const ok = chosenKey === winnerKey;
 
   if (ok) {
     fb.className   = "feedback ok";
@@ -217,9 +206,53 @@ function pick(chosen) {
   $("btn-next").disabled = false;
 }
 
-/* ── Load question ── */
+/* ── Pick ── */
+function pick(chosen) {
+  if (state.answered) return;
+  state.answered = true;
+  chosenKey = chosen;
+
+  const ok = chosen === winnerKey;
+  if (ok) {
+    state.streak  = state.streak + 1;
+    state.best    = Math.max(state.best, state.streak);
+    state.correct = state.correct + 1;
+  } else {
+    state.streak = 0;
+  }
+  state.round++;
+  syncUI();
+  showResult();
+  saveState();
+}
+
+/* ── Restaure la question sauvegardée (au lieu d'en tirer une nouvelle) ── */
+function restoreCurrent(saved) {
+  ld        = saved.left;
+  rd        = saved.right;
+  winnerKey = saved.winnerKey;
+  chosenKey = saved.chosenKey;
+  state.answered = !!saved.answered;
+
+  setCard("A", ld.title, ld.img);
+  setCard("B", rd.title, rd.img);
+
+  if (state.answered) {
+    showResult();
+  } else {
+    const nextBtn = $("btn-next");
+    nextBtn.classList.remove("on");
+    nextBtn.disabled = true;
+    $("feedback").className   = "feedback";
+    $("feedback").textContent = "";
+  }
+}
+
+/* ── Load question (toujours une NOUVELLE question, écrase la sauvegarde) ── */
 async function loadQ() {
   state.answered = false;
+  chosenKey = null;
+
   const nextBtn = $("btn-next");
   nextBtn.classList.remove("on");
   nextBtn.disabled = true;
@@ -264,20 +297,20 @@ async function loadQ() {
     const [imgA, imgB]   = await Promise.all([resolveImg(wikiMap, tA), resolveImg(wikiMap, tB)]);
 
     const swap = Math.random() > 0.5;
-    ld = swap ? { title: tB, views: aB.views } : { title: tA, views: aA.views };
-    rd = swap ? { title: tA, views: aA.views } : { title: tB, views: aB.views };
-    const imgL = swap ? imgB : imgA;
-    const imgR = swap ? imgA : imgB;
+    ld = swap ? { title: tB, views: aB.views, img: imgB } : { title: tA, views: aA.views, img: imgA };
+    rd = swap ? { title: tA, views: aA.views, img: imgA } : { title: tB, views: aB.views, img: imgB };
 
     winnerKey = aA.views >= aB.views
       ? (swap ? "B" : "A")
       : (swap ? "A" : "B");
 
-    setCard("A", ld.title, imgL);
-    setCard("B", rd.title, imgR);
+    setCard("A", ld.title, ld.img);
+    setCard("B", rd.title, rd.img);
 
     fb.className   = "feedback";
     fb.textContent = "";
+
+    saveState();
 
   } catch (err) {
     console.error(err);
@@ -285,6 +318,7 @@ async function loadQ() {
     fb.textContent = "⚡ Erreur de chargement. Vérifiez votre connexion.";
     nextBtn.classList.add("on");
     nextBtn.disabled = false;
+    ld = null; rd = null;
     for (const k of ["A", "B"]) {
       $(`shim${k}`).style.display = "none";
       $(`ph-${k}`).style.display  = "flex";
@@ -297,6 +331,19 @@ $("side-A").addEventListener("click", () => pick("A"));
 $("side-B").addEventListener("click", () => pick("B"));
 $("btn-next").addEventListener("click", loadQ);
 
-loadStats();
+/* ── Démarrage ── */
+const saved = loadState();
+
+if (saved?.stats) {
+  state.streak  = Number(saved.stats.streak)  || 0;
+  state.best    = Number(saved.stats.best)    || 0;
+  state.round   = Number(saved.stats.round)   || 0;
+  state.correct = Number(saved.stats.correct) || 0;
+}
 syncUI();
-loadQ();
+
+if (saved?.current) {
+  restoreCurrent(saved.current);
+} else {
+  loadQ();
+}
