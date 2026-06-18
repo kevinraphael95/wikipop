@@ -146,12 +146,13 @@ function pick(chosen) {
   const w = winnerKey === "A" ? ld : rd;
   const l = winnerKey === "A" ? rd : ld;
   const fb = $("feedback");
+  const mobile = window.innerWidth <= 560;
   if (ok) {
     fb.className = "feedback ok";
-    fb.textContent = `✓ Bien joué ! « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
+    fb.textContent = mobile ? `✓ Bien joué !` : `✓ Bien joué ! « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
   } else {
     fb.className = "feedback ko";
-    fb.textContent = `✗ C'était « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
+    fb.textContent = mobile ? `✗ C'était « ${w.title} »` : `✗ C'était « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
   }
   $("btn-next").classList.add("on");
 }
