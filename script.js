@@ -13,14 +13,32 @@ const fmt = n => Math.round(n).toLocaleString("fr-FR");
 const pad = n => String(n).padStart(2, "0");
 
 async function fetchPool() {
-  const d = new Date(Date.now() - 86400000);
-  const url = `${WIKI_VIEWS}/${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error("pageviews " + r.status);
+  const params = new URLSearchParams({
+    action: "query", list: "random",
+    rnnamespace: "0", rnlimit: "50",
+    format: "json", origin: "*",
+  });
+  const r = await fetch(WIKI_API + "?" + params);
+  if (!r.ok) throw new Error("random API " + r.status);
   const data = await r.json();
-  return (data.items?.[0]?.articles ?? [])
-    .filter(a => !BLACKLIST.test(a.article) && a.views > 0 && !a.article.includes('.'))
-    .slice(0, 100);
+  const titles = (data.query?.random ?? [])
+    .filter(a => !BLACKLIST.test(a.title))
+    .map(a => a.title);
+
+  const vparams = new URLSearchParams({
+    action: "query", prop: "pageviews",
+    pvipdays: "7", titles: titles.join("|"),
+    format: "json", origin: "*",
+  });
+  const r2 = await fetch(WIKI_API + "?" + vparams);
+  if (!r2.ok) throw new Error("pageviews API " + r2.status);
+  const d2 = await r2.json();
+  return Object.values(d2.query?.pages ?? {})
+    .map(p => {
+      const views = Object.values(p.pageviews ?? {}).reduce((s, v) => s + (v || 0), 0);
+      return { article: p.title, views };
+    })
+    .filter(a => a.views > 0);
 }
 
 async function fetchWikiImgs(titles) {
