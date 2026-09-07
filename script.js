@@ -105,7 +105,7 @@ async function fetchWikiImgs(titles) {
   for (const p of Object.values(data.query?.pages ?? {})) {
     const orig = p.original;
     const thumb = p.thumbnail;
-    const okRes = orig && orig.width >= 300 && orig.height >= 300;
+    const okRes = orig && orig.width >= 150 && orig.height >= 150;
     map[p.title] = okRes ? (thumb?.source ?? null) : null;
   }
   for (const n of data.query?.normalized ?? [])
@@ -119,21 +119,29 @@ async function fetchCommonsImg(query) {
     const p1 = new URLSearchParams({
       action: "query", list: "search",
       srsearch: query, srnamespace: "6",
-      srlimit: "3", format: "json", origin: "*",
+      srlimit: "5", format: "json", origin: "*",
     });
     const r1   = await fetch(`${COMMONS_API}?${p1}`);
     const d1   = await r1.json();
-    const hit  = d1.query?.search?.[0];
-    if (!hit) return null;
+    const hits = d1.query?.search ?? [];
+    if (!hits.length) return null;
 
-    const p2 = new URLSearchParams({
-      action: "query", prop: "imageinfo",
-      iiprop: "url", iiurlwidth: "800",
-      titles: hit.title, format: "json", origin: "*",
-    });
-    const r2 = await fetch(`${COMMONS_API}?${p2}`);
-    const d2 = await r2.json();
-    return Object.values(d2.query?.pages ?? {})[0]?.imageinfo?.[0]?.thumburl ?? null;
+    // On tente chaque résultat jusqu'à en trouver un exploitable : le premier
+    // hit n'est pas toujours une vraie image (peut être un doc, une carte, etc.)
+    for (const hit of hits) {
+      const p2 = new URLSearchParams({
+        action: "query", prop: "imageinfo",
+        iiprop: "url|size", iiurlwidth: "800",
+        titles: hit.title, format: "json", origin: "*",
+      });
+      const r2 = await fetch(`${COMMONS_API}?${p2}`);
+      const d2 = await r2.json();
+      const info = Object.values(d2.query?.pages ?? {})[0]?.imageinfo?.[0];
+      if (info?.thumburl && info.width >= 150 && info.height >= 150) {
+        return info.thumburl;
+      }
+    }
+    return null;
   } catch { return null; }
 }
 
