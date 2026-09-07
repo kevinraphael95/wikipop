@@ -197,6 +197,12 @@ function setCard(k, title, img) {
   s.className = "side";
   s.disabled  = false;
   s.setAttribute("aria-label", `Choisir : ${title}`);
+
+  const wiki = $(`wiki-${k}`);
+  wiki.href = `https://fr.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
+  wiki.setAttribute("aria-label", `Voir « ${title} » sur Wikipédia`);
+  wiki.style.pointerEvents = "";
+  wiki.style.opacity = "";
 }
 
 function syncUI() {
@@ -309,7 +315,7 @@ async function loadQ() {
     const s = $(`side-${k}`);
     s.className = "side";
     s.disabled  = true;
-    s.style.animation = "none";
+    $(`side-${k}`).closest(".side-wrap").style.animation = "none";
     const title = $(`title-${k}`);
     title.textContent = "";
     title.classList.add("skeleton");
@@ -318,10 +324,13 @@ async function loadQ() {
     $(`imgel-${k}`).style.display = "none";
     $(`ph-${k}`).style.display    = "none";
     $(`shim${k}`).style.display   = "flex";
+    const wiki = $(`wiki-${k}`);
+    wiki.style.pointerEvents = "none";
+    wiki.style.opacity = "0";
   }
   requestAnimationFrame(() => {
-    $("side-A").style.animation = "";
-    $("side-B").style.animation = "";
+    $("side-A").closest(".side-wrap").style.animation = "";
+    $("side-B").closest(".side-wrap").style.animation = "";
   });
 
   try {

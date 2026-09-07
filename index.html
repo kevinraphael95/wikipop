@@ -59,45 +59,63 @@
   </div>
 
   <main class="duel" id="duel">
-    <button class="side" id="side-A" aria-label="Choisir l'article A">
-      <div class="side-img">
-        <div class="img-shimmer" id="shimA" aria-hidden="true"></div>
-        <img id="imgel-A" src="" alt="" style="display:none">
-        <div class="no-img" id="ph-A" style="display:none" aria-hidden="true">📄</div>
-      </div>
-      <div class="choose-hint" aria-hidden="true">Choisir</div>
-      <div class="ribbon" aria-hidden="true">✓ Gagnant</div>
-      <div class="side-footer">
-        <div class="side-info">
-          <div class="side-title" id="title-A">—</div>
+    <div class="side-wrap">
+      <button class="side" id="side-A" aria-label="Choisir l'article A">
+        <div class="side-img">
+          <div class="img-shimmer" id="shimA" aria-hidden="true"></div>
+          <img id="imgel-A" src="" alt="" style="display:none">
+          <div class="no-img" id="ph-A" style="display:none" aria-hidden="true">📄</div>
         </div>
-        <div class="views-block" aria-live="polite">
-          <div class="views-num" id="num-A">???</div>
-          <div class="views-sub">vues</div>
+        <div class="choose-hint" aria-hidden="true">Choisir</div>
+        <div class="ribbon" aria-hidden="true">✓ Gagnant</div>
+        <div class="side-footer">
+          <div class="side-info">
+            <div class="side-title" id="title-A">—</div>
+          </div>
+          <div class="views-block" aria-live="polite">
+            <div class="views-num" id="num-A">???</div>
+            <div class="views-sub">vues</div>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <a class="wiki-link" id="wiki-A" href="#" target="_blank" rel="noopener noreferrer" aria-label="Voir l'article sur Wikipédia">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+      </a>
+    </div>
 
     <div class="vs-col" aria-hidden="true"><span class="vs-badge">VS</span></div>
 
-    <button class="side" id="side-B" aria-label="Choisir l'article B">
-      <div class="side-img">
-        <div class="img-shimmer" id="shimB" aria-hidden="true"></div>
-        <img id="imgel-B" src="" alt="" style="display:none">
-        <div class="no-img" id="ph-B" style="display:none" aria-hidden="true">📄</div>
-      </div>
-      <div class="choose-hint" aria-hidden="true">Choisir</div>
-      <div class="ribbon" aria-hidden="true">✓ Gagnant</div>
-      <div class="side-footer">
-        <div class="side-info">
-          <div class="side-title" id="title-B">—</div>
+    <div class="side-wrap">
+      <button class="side" id="side-B" aria-label="Choisir l'article B">
+        <div class="side-img">
+          <div class="img-shimmer" id="shimB" aria-hidden="true"></div>
+          <img id="imgel-B" src="" alt="" style="display:none">
+          <div class="no-img" id="ph-B" style="display:none" aria-hidden="true">📄</div>
         </div>
-        <div class="views-block" aria-live="polite">
-          <div class="views-num" id="num-B">???</div>
-          <div class="views-sub">vues</div>
+        <div class="choose-hint" aria-hidden="true">Choisir</div>
+        <div class="ribbon" aria-hidden="true">✓ Gagnant</div>
+        <div class="side-footer">
+          <div class="side-info">
+            <div class="side-title" id="title-B">—</div>
+          </div>
+          <div class="views-block" aria-live="polite">
+            <div class="views-num" id="num-B">???</div>
+            <div class="views-sub">vues</div>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <a class="wiki-link" id="wiki-B" href="#" target="_blank" rel="noopener noreferrer" aria-label="Voir l'article sur Wikipédia">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+      </a>
+    </div>
   </main>
 
   <div class="bottom">
