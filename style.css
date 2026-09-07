@@ -174,7 +174,7 @@ body {
   letter-spacing: .06em;
 }
 
-.chip-streak { color: var(--muted); }
+.chip-streak { color: var(--text); font-weight: 800; }
 
 .chip-streak.hot {
   color: #ff7a2f;
