@@ -385,22 +385,27 @@ body {
 /* ── Winner ribbon ── */
 .ribbon {
   position: absolute;
-  top: 14px; right: -22px;
+  top: var(--sp-3); right: var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: 5px;
   background: var(--green);
   color: #fff;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: .08em;
+  letter-spacing: .04em;
   text-transform: uppercase;
-  padding: 5px 32px;
-  transform: rotate(35deg);
+  padding: 6px 14px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
   opacity: 0;
-  transition: opacity .25s;
+  transform: translateY(-4px);
+  transition: opacity .25s, transform .25s var(--ease);
   pointer-events: none;
   z-index: 4;
 }
 
-.side.correct .ribbon { opacity: 1; }
+.side.correct .ribbon { opacity: 1; transform: translateY(0); }
 
 /* ── Card footer ── */
 .side-footer {
