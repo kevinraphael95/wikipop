@@ -7,6 +7,7 @@ const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
 const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Décès_|Décès |Mort_|Mort )/i;
 
 const STORAGE_KEY = "wikipop-state";
+const MAX_AGE_MS  = 30 * 24 * 60 * 60 * 1000; // purge après 30 jours d'inactivité
 
 const state = { streak: 0, best: 0, answered: false, round: 0, correct: 0 };
 let pool = [], winnerKey = "A", ld = null, rd = null, chosenKey = null;
@@ -15,34 +16,52 @@ const $   = id => document.getElementById(id);
 const fmt = n  => Math.round(n).toLocaleString("fr-FR");
 const pad = n  => String(n).padStart(2, "0");
 
-/* ── Persistance (stats + question en cours, même clé) ── */
-function loadState() {
+/* ── Stockage unique (thème + stats + question en cours) avec expiration ──
+   Toutes les données de l'app vivent dans UNE seule clé localStorage.
+   Chaque écriture rafraîchit "savedAt" ; si l'entrée n'a pas été mise à
+   jour depuis plus de 30 jours (utilisateur qui ne revient plus), elle
+   est automatiquement purgée à la lecture suivante, pour ne pas
+   accumuler de données mortes dans le navigateur. */
+function readStore() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data.savedAt || Date.now() - data.savedAt > MAX_AGE_MS) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return data;
   } catch { return null; }
 }
 
-function saveState() {
+function writeStore(patch) {
   try {
-    let prev = {};
-    try { prev = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { /* rien à fusionner */ }
+    const prev = readStore() || {};
+    const next = { ...prev, ...patch, savedAt: Date.now() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    return next;
+  } catch { return null; } // quota plein / mode privé : tant pis
+}
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      ...prev,
-      stats: {
-        streak: state.streak, best: state.best,
-        round: state.round, correct: state.correct,
-      },
-      current: (ld && rd) ? {
-        answered: state.answered,
-        chosenKey,
-        winnerKey,
-        left:  ld,
-        right: rd,
-      } : null,
-    }));
-  } catch { /* quota plein / mode privé : tant pis */ }
+function loadState() {
+  return readStore();
+}
+
+function saveState() {
+  writeStore({
+    stats: {
+      streak: state.streak, best: state.best,
+      round: state.round, correct: state.correct,
+    },
+    current: (ld && rd) ? {
+      answered: state.answered,
+      chosenKey,
+      winnerKey,
+      left:  ld,
+      right: rd,
+    } : null,
+  });
 }
 
 /* ── Pool : top pageviews 7 derniers jours ── */
@@ -144,6 +163,7 @@ function setCard(k, title, img) {
   const ph   = $(`ph-${k}`);
   const shim = $(`shim${k}`);
 
+  $(`title-${k}`).classList.remove("skeleton");
   shim.style.display = "none";
 
   if (img) {
@@ -273,13 +293,20 @@ async function loadQ() {
     const s = $(`side-${k}`);
     s.className = "side";
     s.disabled  = true;
-    $(`title-${k}`).textContent = "…";
+    s.style.animation = "none";
+    const title = $(`title-${k}`);
+    title.textContent = "";
+    title.classList.add("skeleton");
     $(`num-${k}`).textContent   = "???";
     $(`num-${k}`).classList.remove("shown");
     $(`imgel-${k}`).style.display = "none";
     $(`ph-${k}`).style.display    = "none";
     $(`shim${k}`).style.display   = "flex";
   }
+  requestAnimationFrame(() => {
+    $("side-A").style.animation = "";
+    $("side-B").style.animation = "";
+  });
 
   try {
     if (pool.length < 10) pool = await fetchPool();
