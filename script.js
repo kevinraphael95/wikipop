@@ -164,16 +164,32 @@ function setCard(k, title, img) {
   const shim = $(`shim${k}`);
 
   $(`title-${k}`).classList.remove("skeleton");
-  shim.style.display = "none";
+
+  // On retire l'ancienne image tout de suite et on précharge la nouvelle
+  // en mémoire avant de l'afficher : le shimmer reste visible tant que
+  // l'image n'est pas réellement prête, donc jamais de flash de
+  // l'ancienne image pendant le chargement de la suivante.
+  el.removeAttribute("src");
+  el.style.display = "none";
+  ph.style.display  = "none";
 
   if (img) {
-    el.alt = title;
-    el.src = img;
-    el.style.display = "block";
-    ph.style.display = "none";
+    shim.style.display = "flex";
+    const preload = new Image();
+    preload.onload = () => {
+      el.src = img;
+      el.alt = title;
+      shim.style.display = "none";
+      el.style.display = "block";
+    };
+    preload.onerror = () => {
+      shim.style.display = "none";
+      ph.style.display = "flex";
+    };
+    preload.src = img;
     el.onerror = () => { el.style.display = "none"; ph.style.display = "flex"; };
   } else {
-    el.style.display = "none";
+    shim.style.display = "none";
     ph.style.display = "flex";
   }
 
