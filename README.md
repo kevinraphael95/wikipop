@@ -31,7 +31,3 @@ theme.js     → gestion du bouton clair/sombre
 - HTML / CSS / JavaScript vanilla, aucune dépendance, aucun build.
 - Hébergé sur GitHub Pages.
 - Données : [API Pageviews Wikimédia](https://wikimedia.org/api/rest_v1/) + [API Wikipédia FR](https://fr.wikipedia.org/w/api.php) + [API Wikimedia Commons](https://commons.wikimedia.org/w/api.php).
-
-## Lancer en local
-
-Aucune installation nécessaire — ouvre simplement `index.html` dans un navigateur, ou sers le dossier avec un petit serveur statique (ex. `npx serve`) pour éviter d'éventuelles restrictions CORS locales.
