@@ -362,6 +362,24 @@ $("side-A").addEventListener("click", () => pick("A"));
 $("side-B").addEventListener("click", () => pick("B"));
 $("btn-next").addEventListener("click", loadQ);
 
+/* ── Raccourcis clavier (PC) ──
+   ← / → : choisir le côté gauche / droit
+   Espace ou Entrée : passer à la question suivante (une fois répondu) */
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    pick("A");
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault();
+    pick("B");
+  } else if (e.key === " " || e.key === "Enter") {
+    if (!$("btn-next").classList.contains("on")) return;
+    if (e.target.tagName === "BUTTON") return; // laisse le bouton focus gérer sa propre activation
+    e.preventDefault();
+    loadQ();
+  }
+});
+
 /* ── Démarrage ── */
 const saved = loadState();
 
