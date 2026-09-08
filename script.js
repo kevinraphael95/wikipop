@@ -16,12 +16,7 @@ const $   = id => document.getElementById(id);
 const fmt = n  => Math.round(n).toLocaleString("fr-FR");
 const pad = n  => String(n).padStart(2, "0");
 
-/* ── Stockage unique (thème + stats + question en cours) avec expiration ──
-   Toutes les données de l'app vivent dans UNE seule clé localStorage.
-   Chaque écriture rafraîchit "savedAt" ; si l'entrée n'a pas été mise à
-   jour depuis plus de 30 jours (utilisateur qui ne revient plus), elle
-   est automatiquement purgée à la lecture suivante, pour ne pas
-   accumuler de données mortes dans le navigateur. */
+/* ── Stockage unique (thème + stats + question en cours) avec expiration ── */
 function readStore() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -41,7 +36,7 @@ function writeStore(patch) {
     const next = { ...prev, ...patch, savedAt: Date.now() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     return next;
-  } catch { return null; } // quota plein / mode privé : tant pis
+  } catch { return null; }
 }
 
 function loadState() {
@@ -89,7 +84,7 @@ async function fetchPool() {
   return all.sort(() => Math.random() - 0.5).slice(0, 300);
 }
 
-/* ── Images Wikipedia ── */
+/* ── Images Wikipedia (Amélioré) ── */
 async function fetchWikiImgs(titles) {
   const params = new URLSearchParams({
     action: "query", prop: "pageimages|info",
@@ -103,22 +98,23 @@ async function fetchWikiImgs(titles) {
 
   const map = {};
   for (const p of Object.values(data.query?.pages ?? {})) {
-    const orig = p.original;
     const thumb = p.thumbnail;
-    const okRes = orig && orig.width >= 150 && orig.height >= 150;
-    map[p.title] = okRes ? (thumb?.source ?? null) : null;
+    // Récupération directe de la vignette officielle fournie par la page Wikipédia
+    map[p.title] = thumb?.source ?? null;
   }
   for (const n of data.query?.normalized ?? [])
     if (map[n.to] !== undefined) map[n.from] = map[n.to];
   return map;
 }
 
-/* ── Fallback image Commons ── */
+/* ── Fallback image Commons (Filtré et sécurisé) ── */
 async function fetchCommonsImg(query) {
   try {
+    // Restriction de la recherche aux fichiers images matricielles (jpg, png)
+    const searchQuery = `${query} filetype:bitmap`;
     const p1 = new URLSearchParams({
       action: "query", list: "search",
-      srsearch: query, srnamespace: "6",
+      srsearch: searchQuery, srnamespace: "6",
       srlimit: "5", format: "json", origin: "*",
     });
     const r1   = await fetch(`${COMMONS_API}?${p1}`);
@@ -126,9 +122,10 @@ async function fetchCommonsImg(query) {
     const hits = d1.query?.search ?? [];
     if (!hits.length) return null;
 
-    // On tente chaque résultat jusqu'à en trouver un exploitable : le premier
-    // hit n'est pas toujours une vraie image (peut être un doc, une carte, etc.)
     for (const hit of hits) {
+      // Filtrage strict des documents non photographiques
+      if (/\.(pdf|djvu|svg|ogg|ogv)$/i.test(hit.title)) continue;
+
       const p2 = new URLSearchParams({
         action: "query", prop: "imageinfo",
         iiprop: "url|size", iiurlwidth: "800",
@@ -137,7 +134,7 @@ async function fetchCommonsImg(query) {
       const r2 = await fetch(`${COMMONS_API}?${p2}`);
       const d2 = await r2.json();
       const info = Object.values(d2.query?.pages ?? {})[0]?.imageinfo?.[0];
-      if (info?.thumburl && info.width >= 150 && info.height >= 150) {
+      if (info?.thumburl && info.width >= 200 && info.height >= 200) {
         return info.thumburl;
       }
     }
@@ -173,10 +170,6 @@ function setCard(k, title, img) {
 
   $(`title-${k}`).classList.remove("skeleton");
 
-  // On retire l'ancienne image tout de suite et on précharge la nouvelle
-  // en mémoire avant de l'afficher : le shimmer reste visible tant que
-  // l'image n'est pas réellement prête, donc jamais de flash de
-  // l'ancienne image pendant le chargement de la suivante.
   el.removeAttribute("src");
   el.style.display = "none";
   ph.style.display  = "none";
@@ -227,7 +220,7 @@ function syncUI() {
   $("prog-pct").textContent = `${pct}%`;
 }
 
-/* ── Affiche le résultat (utilisé après un clic ET après une restauration) ── */
+/* ── Affiche le résultat ── */
 function showResult() {
   for (const k of ["A", "B"]) {
     const s = $(`side-${k}`);
@@ -280,7 +273,7 @@ function pick(chosen) {
   saveState();
 }
 
-/* ── Restaure la question sauvegardée (au lieu d'en tirer une nouvelle) ── */
+/* ── Restaure la question sauvegardée ── */
 function restoreCurrent(saved) {
   ld        = saved.left;
   rd        = saved.right;
@@ -302,7 +295,7 @@ function restoreCurrent(saved) {
   }
 }
 
-/* ── Load question (toujours une NOUVELLE question, écrase la sauvegarde) ── */
+/* ── Load question ── */
 async function loadQ() {
   state.answered = false;
   chosenKey = null;
@@ -395,9 +388,7 @@ $("side-A").addEventListener("click", () => pick("A"));
 $("side-B").addEventListener("click", () => pick("B"));
 $("btn-next").addEventListener("click", loadQ);
 
-/* ── Raccourcis clavier (PC) ──
-   ← / → : choisir le côté gauche / droit
-   Espace ou Entrée : passer à la question suivante (une fois répondu) */
+/* ── Raccourcis clavier ── */
 document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") {
     e.preventDefault();
@@ -407,7 +398,7 @@ document.addEventListener("keydown", (e) => {
     pick("B");
   } else if (e.key === " " || e.key === "Enter") {
     if (!$("btn-next").classList.contains("on")) return;
-    if (e.target.tagName === "BUTTON") return; // laisse le bouton focus gérer sa propre activation
+    if (e.target.tagName === "BUTTON") return;
     e.preventDefault();
     loadQ();
   }
