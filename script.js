@@ -390,15 +390,27 @@ $("btn-next").addEventListener("click", loadQ);
 
 /* ── Raccourcis clavier ── */
 document.addEventListener("keydown", (e) => {
+  // Récupère l'élément qui a actuellement le focus
+  const activeEl = document.activeElement;
+  
+  // Vérifie si l'utilisateur est focalisé sur un composant interactif (bouton de thème, champ, etc.)
+  const isInteractive = activeEl && ["BUTTON", "INPUT", "SELECT", "TEXTAREA", "A"].includes(activeEl.tagName);
+
   if (e.key === "ArrowLeft") {
+    if (isInteractive) return;
     e.preventDefault();
     pick("A");
   } else if (e.key === "ArrowRight") {
+    if (isInteractive) return;
     e.preventDefault();
     pick("B");
   } else if (e.key === " " || e.key === "Enter") {
+    // Si le focus est sur un bouton (ex: ton bouton de thème), on laisse le navigateur gérer le clic normalement
+    if (isInteractive) return;
+    
+    // Sinon, si le bouton "Suivant" n'est pas actif, on ne fait rien
     if (!$("btn-next").classList.contains("on")) return;
-    if (e.target.tagName === "BUTTON") return;
+    
     e.preventDefault();
     loadQ();
   }
