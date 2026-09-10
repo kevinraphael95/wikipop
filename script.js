@@ -99,7 +99,6 @@ async function fetchWikiImgs(titles) {
   const map = {};
   for (const p of Object.values(data.query?.pages ?? {})) {
     const thumb = p.thumbnail;
-    // Récupération directe de la vignette officielle fournie par la page Wikipédia
     map[p.title] = thumb?.source ?? null;
   }
   for (const n of data.query?.normalized ?? [])
@@ -110,7 +109,6 @@ async function fetchWikiImgs(titles) {
 /* ── Fallback image Commons (Filtré et sécurisé) ── */
 async function fetchCommonsImg(query) {
   try {
-    // Restriction de la recherche aux fichiers images matricielles (jpg, png)
     const searchQuery = `${query} filetype:bitmap`;
     const p1 = new URLSearchParams({
       action: "query", list: "search",
@@ -123,7 +121,6 @@ async function fetchCommonsImg(query) {
     if (!hits.length) return null;
 
     for (const hit of hits) {
-      // Filtrage strict des documents non photographiques
       if (/\.(pdf|djvu|svg|ogg|ogv)$/i.test(hit.title)) continue;
 
       const p2 = new URLSearchParams({
@@ -160,7 +157,7 @@ async function resolveImg(map, title) {
 function setCard(k, title, img) {
   $(`title-${k}`).textContent = title;
 
-  const num  = $(`num-${k}`);
+  const num = $(`num-${k}`);
   num.textContent = "???";
   num.classList.remove("shown");
 
@@ -388,31 +385,32 @@ $("side-A").addEventListener("click", () => pick("A"));
 $("side-B").addEventListener("click", () => pick("B"));
 $("btn-next").addEventListener("click", loadQ);
 
+// Force la perte du focus sur tout élément cliqué (évite le re-déclenchement au clavier)
+document.addEventListener("click", () => {
+  if (document.activeElement && document.activeElement !== document.body) {
+    document.activeElement.blur();
+  }
+});
+
 /* ── Raccourcis clavier ── */
 document.addEventListener("keydown", (e) => {
-  // Récupère l'élément qui a actuellement le focus
-  const activeEl = document.activeElement;
-  
-  // Vérifie si l'utilisateur est focalisé sur un composant interactif (bouton de thème, champ, etc.)
-  const isInteractive = activeEl && ["BUTTON", "INPUT", "SELECT", "TEXTAREA", "A"].includes(activeEl.tagName);
-
   if (e.key === "ArrowLeft") {
-    if (isInteractive) return;
     e.preventDefault();
     pick("A");
   } else if (e.key === "ArrowRight") {
-    if (isInteractive) return;
     e.preventDefault();
     pick("B");
   } else if (e.key === " " || e.key === "Enter") {
-    // Si le focus est sur un bouton (ex: ton bouton de thème), on laisse le navigateur gérer le clic normalement
-    if (isInteractive) return;
-    
-    // Sinon, si le bouton "Suivant" n'est pas actif, on ne fait rien
-    if (!$("btn-next").classList.contains("on")) return;
-    
     e.preventDefault();
-    loadQ();
+    
+    // On retire le focus actif pour neutraliser tout clic natif du navigateur sur un bouton
+    if (document.activeElement) {
+      document.activeElement.blur();
+    }
+    
+    if ($("btn-next").classList.contains("on")) {
+      loadQ();
+    }
   }
 });
 
