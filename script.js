@@ -1,432 +1,421 @@
+/* ============================================================
+   WikiPop — script.js
+   Structure : CONFIG · Store · Api · View · Game · Theme
+   ============================================================ */
 "use strict";
 
-const WIKI_VIEWS  = "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/fr.wikipedia/all-access";
-const WIKI_API    = "https://fr.wikipedia.org/w/api.php";
-const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
+/* ── CONFIG ─────────────────────────────────────────────────── */
+const CONFIG = {
+  WIKI_VIEWS : "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/fr.wikipedia/all-access",
+  WIKI_API   : "https://fr.wikipedia.org/w/api.php",
+  COMMONS_API: "https://commons.wikimedia.org/w/api.php",
+  BLACKLIST  : /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Décès_|Décès |Mort_|Mort )/i,
+  STORAGE_KEY: "wikipop-state",
+  MAX_AGE_MS : 30 * 24 * 60 * 60 * 1000,   // purge après 30 jours d'inactivité
+  DAYS       : 7,
+  POOL_SIZE  : 300,
+  POOL_MIN   : 10,
+  IMG_WIDTH  : 800,
+};
 
-const BLACKLIST = /^(Accueil|Spécial:|Wikipédia:|Portail:|Aide:|Utilisateur|Main_Page|Special:|Wikipedia:|Liste|Décès_|Décès |Mort_|Mort )/i;
+const $   = (id) => document.getElementById(id);
+const fmt = (n)  => Math.round(n).toLocaleString("fr-FR");
+const pad = (n)  => String(n).padStart(2, "0");
 
-const STORAGE_KEY = "wikipop-state";
-const MAX_AGE_MS  = 30 * 24 * 60 * 60 * 1000; // purge après 30 jours d'inactivité
-
-const state = { streak: 0, best: 0, answered: false, round: 0, correct: 0 };
-let pool = [], winnerKey = "A", ld = null, rd = null, chosenKey = null;
-
-const $   = id => document.getElementById(id);
-const fmt = n  => Math.round(n).toLocaleString("fr-FR");
-const pad = n  => String(n).padStart(2, "0");
-
-/* ── Stockage unique (thème + stats + question en cours) avec expiration ── */
-function readStore() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!data.savedAt || Date.now() - data.savedAt > MAX_AGE_MS) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return data;
-  } catch { return null; }
-}
-
-function writeStore(patch) {
-  try {
-    const prev = readStore() || {};
-    const next = { ...prev, ...patch, savedAt: Date.now() };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    return next;
-  } catch { return null; }
-}
-
-function loadState() {
-  return readStore();
-}
-
-function saveState() {
-  writeStore({
-    stats: {
-      streak: state.streak, best: state.best,
-      round: state.round, correct: state.correct,
-    },
-    current: (ld && rd) ? {
-      answered: state.answered,
-      chosenKey,
-      winnerKey,
-      left:  ld,
-      right: rd,
-    } : null,
-  });
-}
-
-/* ── Pool : top pageviews 7 derniers jours ── */
-async function fetchPool() {
-  const seen = new Set();
-  const all  = [];
-
-  const fetches = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(Date.now() - 86_400_000 * (i + 1));
-    const url = `${WIKI_VIEWS}/${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`;
-    return fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
-  });
-
-  const results = await Promise.all(fetches);
-
-  for (const data of results) {
-    for (const a of (data?.items?.[0]?.articles ?? [])) {
-      if (!BLACKLIST.test(a.article) && a.views > 0 && !a.article.includes(".") && !seen.has(a.article)) {
-        seen.add(a.article);
-        all.push(a);
+/* ── STORE : une seule clé (thème + stats + question en cours) ── */
+const Store = {
+  read() {
+    try {
+      const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data.savedAt || Date.now() - data.savedAt > CONFIG.MAX_AGE_MS) {
+        localStorage.removeItem(CONFIG.STORAGE_KEY);
+        return null;
       }
-    }
-  }
+      return data;
+    } catch { return null; }
+  },
+  write(patch) {
+    try {
+      const next = { ...(this.read() || {}), ...patch, savedAt: Date.now() };
+      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(next));
+    } catch { /* stockage indisponible : on continue sans */ }
+  },
+};
 
-  return all.sort(() => Math.random() - 0.5).slice(0, 300);
-}
-
-/* ── Images Wikipedia (Amélioré) ── */
-async function fetchWikiImgs(titles) {
-  const params = new URLSearchParams({
-    action: "query", prop: "pageimages|info",
-    piprop: "thumbnail|original", pithumbsize: "800",
-    inprop: "url", titles: titles.join("|"),
-    format: "json", origin: "*",
-  });
-  const r = await fetch(`${WIKI_API}?${params}`);
-  if (!r.ok) throw new Error(`wiki API ${r.status}`);
-  const data = await r.json();
-
-  const map = {};
-  for (const p of Object.values(data.query?.pages ?? {})) {
-    const thumb = p.thumbnail;
-    map[p.title] = thumb?.source ?? null;
-  }
-  for (const n of data.query?.normalized ?? [])
-    if (map[n.to] !== undefined) map[n.from] = map[n.to];
-  return map;
-}
-
-/* ── Fallback image Commons (Filtré et sécurisé) ── */
-async function fetchCommonsImg(query) {
-  try {
-    const searchQuery = `${query} filetype:bitmap`;
-    const p1 = new URLSearchParams({
-      action: "query", list: "search",
-      srsearch: searchQuery, srnamespace: "6",
-      srlimit: "5", format: "json", origin: "*",
+/* ── API : Wikimédia (pageviews, images, fallback Commons) ───── */
+const Api = {
+  async fetchPool() {
+    const requests = Array.from({ length: CONFIG.DAYS }, (_, i) => {
+      const d = new Date(Date.now() - 86_400_000 * (i + 1));
+      const url = `${CONFIG.WIKI_VIEWS}/${d.getUTCFullYear()}/${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}`;
+      return fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
     });
-    const r1   = await fetch(`${COMMONS_API}?${p1}`);
-    const d1   = await r1.json();
-    const hits = d1.query?.search ?? [];
-    if (!hits.length) return null;
 
-    for (const hit of hits) {
-      if (/\.(pdf|djvu|svg|ogg|ogv)$/i.test(hit.title)) continue;
-
-      const p2 = new URLSearchParams({
-        action: "query", prop: "imageinfo",
-        iiprop: "url|size", iiurlwidth: "800",
-        titles: hit.title, format: "json", origin: "*",
-      });
-      const r2 = await fetch(`${COMMONS_API}?${p2}`);
-      const d2 = await r2.json();
-      const info = Object.values(d2.query?.pages ?? {})[0]?.imageinfo?.[0];
-      if (info?.thumburl && info.width >= 200 && info.height >= 200) {
-        return info.thumburl;
+    const seen = new Set(), all = [];
+    for (const data of await Promise.all(requests)) {
+      for (const a of data?.items?.[0]?.articles ?? []) {
+        const valid = !CONFIG.BLACKLIST.test(a.article) && a.views > 0 && !a.article.includes(".");
+        if (valid && !seen.has(a.article)) { seen.add(a.article); all.push(a); }
       }
     }
+    return all.sort(() => Math.random() - 0.5).slice(0, CONFIG.POOL_SIZE);
+  },
+
+  async fetchWikiImages(titles) {
+    const params = new URLSearchParams({
+      action: "query", prop: "pageimages|info", piprop: "thumbnail|original",
+      pithumbsize: CONFIG.IMG_WIDTH, inprop: "url", titles: titles.join("|"),
+      format: "json", origin: "*",
+    });
+    const res = await fetch(`${CONFIG.WIKI_API}?${params}`);
+    if (!res.ok) throw new Error(`wiki API ${res.status}`);
+    const data = await res.json();
+
+    const map = {};
+    for (const p of Object.values(data.query?.pages ?? {})) map[p.title] = p.thumbnail?.source ?? null;
+    for (const n of data.query?.normalized ?? []) if (map[n.to] !== undefined) map[n.from] = map[n.to];
+    return map;
+  },
+
+  async fetchCommonsImage(query) {
+    try {
+      const search = new URLSearchParams({
+        action: "query", list: "search", srsearch: `${query} filetype:bitmap`,
+        srnamespace: "6", srlimit: "5", format: "json", origin: "*",
+      });
+      const hits = (await (await fetch(`${CONFIG.COMMONS_API}?${search}`)).json()).query?.search ?? [];
+
+      for (const hit of hits) {
+        if (/\.(pdf|djvu|svg|ogg|ogv)$/i.test(hit.title)) continue;
+        const info = new URLSearchParams({
+          action: "query", prop: "imageinfo", iiprop: "url|size",
+          iiurlwidth: CONFIG.IMG_WIDTH, titles: hit.title, format: "json", origin: "*",
+        });
+        const page = Object.values((await (await fetch(`${CONFIG.COMMONS_API}?${info}`)).json()).query?.pages ?? {})[0];
+        const ii = page?.imageinfo?.[0];
+        if (ii?.thumburl && ii.width >= 200 && ii.height >= 200) return ii.thumburl;
+      }
+    } catch { /* pas d'image : on affichera l'initiale */ }
     return null;
-  } catch { return null; }
-}
+  },
 
-function findInMap(map, title) {
-  if (map[title]) return map[title];
-  const u = title.replaceAll(" ", "_");
-  if (map[u]) return map[u];
-  const low = title.toLowerCase();
-  for (const [k, v] of Object.entries(map))
-    if (v && k.toLowerCase() === low) return v;
-  return null;
-}
+  async resolveImage(map, title) {
+    const lower = title.toLowerCase();
+    const hit = map[title] ?? map[title.replaceAll(" ", "_")]
+      ?? Object.entries(map).find(([k, v]) => v && k.toLowerCase() === lower)?.[1];
+    return hit ?? this.fetchCommonsImage(title);
+  },
+};
 
-async function resolveImg(map, title) {
-  return findInMap(map, title) ?? await fetchCommonsImg(title);
-}
+/* ── VIEW : tout ce qui touche au DOM ────────────────────────── */
+const View = {
+  keys: ["A", "B"],
 
-/* ── UI helpers ── */
-function setCard(k, title, img) {
-  $(`title-${k}`).textContent = title;
+  init(onPick) {
+    const labels = { A: "← A", B: "B →" };
+    $("duel").innerHTML = [
+      this.cardHTML("A", labels.A),
+      `<div class="vs" id="vs" aria-hidden="true">VS</div>`,
+      this.cardHTML("B", labels.B),
+    ].join("");
+    this.keys.forEach(k => $(`pick-${k}`).addEventListener("click", () => onPick(k)));
+  },
 
-  const num = $(`num-${k}`);
-  num.textContent = "???";
-  num.classList.remove("shown");
+  cardHTML(k, keyLabel) {
+    return `
+    <article class="card" id="card-${k}">
+      <button class="card__pick" id="pick-${k}" type="button" disabled>
+        <div class="card__media" id="media-${k}" data-state="loading">
+          <img class="card__img" id="img-${k}" alt="" />
+          <span class="card__key" aria-hidden="true">${keyLabel}</span>
+          <span class="card__badge">Gagnant</span>
+        </div>
+        <div class="card__body">
+          <h2 class="card__title is-skeleton" id="title-${k}"></h2>
+          <div class="result">
+            <span class="result__hidden">Nombre de vues masqué</span>
+            <div class="result__shown">
+              <div class="result__row">
+                <span class="result__label">Vues sur 7 jours</span>
+                <span class="result__num" id="num-${k}"></span>
+              </div>
+              <div class="bar"><i id="bar-${k}"></i></div>
+            </div>
+          </div>
+        </div>
+      </button>
+      <a class="card__link" id="link-${k}" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Lire sur Wikipédia ↗</a>
+    </article>`;
+  },
 
-  const el   = $(`imgel-${k}`);
-  const ph   = $(`ph-${k}`);
-  const shim = $(`shim${k}`);
+  /* Dégradé stable par titre, pour les pages sans image */
+  gradient(title) {
+    let h = 0;
+    for (const c of title) h = (h * 31 + c.charCodeAt(0)) % 360;
+    return `linear-gradient(135deg, hsl(${h} 45% 38%), hsl(${(h + 50) % 360} 50% 22%))`;
+  },
 
-  $(`title-${k}`).classList.remove("skeleton");
+  setBusy(busy) { $("duel").setAttribute("aria-busy", busy); },
 
-  el.removeAttribute("src");
-  el.style.display = "none";
-  ph.style.display  = "none";
-
-  if (img) {
-    shim.style.display = "flex";
-    const preload = new Image();
-    preload.onload = () => {
-      el.src = img;
-      el.alt = title;
-      shim.style.display = "none";
-      el.style.display = "block";
-    };
-    preload.onerror = () => {
-      shim.style.display = "none";
-      ph.style.display = "flex";
-    };
-    preload.src = img;
-    el.onerror = () => { el.style.display = "none"; ph.style.display = "flex"; };
-  } else {
-    shim.style.display = "none";
-    ph.style.display = "flex";
-  }
-
-  const s = $(`side-${k}`);
-  s.className = "side";
-  s.disabled  = false;
-  s.setAttribute("aria-label", `Choisir : ${title}`);
-
-  const wiki = $(`wiki-${k}`);
-  wiki.href = `https://fr.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
-  wiki.setAttribute("aria-label", `Voir « ${title} » sur Wikipédia`);
-  wiki.style.pointerEvents = "";
-  wiki.style.opacity = "";
-}
-
-function syncUI() {
-  $("best").textContent   = state.best;
-  $("streak").textContent = state.streak;
-
-  const chip = $("streak-chip");
-  chip.className = "chip chip-streak" + (state.streak >= 3 ? " hot" : "");
-
-  const pct = state.round > 0 ? Math.round((state.correct / state.round) * 100) : 0;
-  const prog = $("prog-bar");
-  prog.style.width = `${pct}%`;
-  prog.closest("[role=progressbar]")?.setAttribute("aria-valuenow", pct);
-  $("prog-pct").textContent = `${pct}%`;
-}
-
-/* ── Affiche le résultat ── */
-function showResult() {
-  for (const k of ["A", "B"]) {
-    const s = $(`side-${k}`);
-    s.disabled = true;
-    s.classList.add(k === winnerKey ? "correct" : "wrong");
-    const n = $(`num-${k}`);
-    n.textContent = fmt((k === "A" ? ld : rd).views);
-    n.classList.add("shown");
-  }
-
-  const w  = winnerKey === "A" ? ld : rd;
-  const l  = winnerKey === "A" ? rd : ld;
-  const fb = $("feedback");
-  const mobile = window.innerWidth <= 560;
-  const ok = chosenKey === winnerKey;
-
-  if (ok) {
-    fb.className   = "feedback ok";
-    fb.textContent = mobile
-      ? "✓ Bien joué !"
-      : `✓ Bien joué ! « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
-  } else {
-    fb.className   = "feedback ko";
-    fb.textContent = mobile
-      ? "✗ Dommage !"
-      : `✗ C'était « ${w.title} » — ${fmt(w.views)} vues vs ${fmt(l.views)}.`;
-  }
-
-  $("btn-next").classList.add("on");
-  $("btn-next").disabled = false;
-}
-
-/* ── Pick ── */
-function pick(chosen) {
-  if (state.answered) return;
-  state.answered = true;
-  chosenKey = chosen;
-
-  const ok = chosen === winnerKey;
-  if (ok) {
-    state.streak  = state.streak + 1;
-    state.best    = Math.max(state.best, state.streak);
-    state.correct = state.correct + 1;
-  } else {
-    state.streak = 0;
-  }
-  state.round++;
-  syncUI();
-  showResult();
-  saveState();
-}
-
-/* ── Restaure la question sauvegardée ── */
-function restoreCurrent(saved) {
-  ld        = saved.left;
-  rd        = saved.right;
-  winnerKey = saved.winnerKey;
-  chosenKey = saved.chosenKey;
-  state.answered = !!saved.answered;
-
-  setCard("A", ld.title, ld.img);
-  setCard("B", rd.title, rd.img);
-
-  if (state.answered) {
-    showResult();
-  } else {
-    const nextBtn = $("btn-next");
-    nextBtn.classList.remove("on");
-    nextBtn.disabled = true;
-    $("feedback").className   = "feedback";
-    $("feedback").textContent = "";
-  }
-}
-
-/* ── Load question ── */
-async function loadQ() {
-  state.answered = false;
-  chosenKey = null;
-
-  const nextBtn = $("btn-next");
-  nextBtn.classList.remove("on");
-  nextBtn.disabled = true;
-
-  const fb = $("feedback");
-  fb.className   = "feedback loading";
-  fb.textContent = "Chargement…";
-
-  const duel = $("duel");
-  duel.style.animation = "none";
-  requestAnimationFrame(() => { duel.style.animation = ""; });
-
-  for (const k of ["A", "B"]) {
-    const s = $(`side-${k}`);
-    s.className = "side";
-    s.disabled  = true;
-    $(`side-${k}`).closest(".side-wrap").style.animation = "none";
+  /* Carte en cours de chargement */
+  setLoading(k) {
+    $(`card-${k}`).className = "card";
+    $(`pick-${k}`).disabled = true;
     const title = $(`title-${k}`);
     title.textContent = "";
-    title.classList.add("skeleton");
-    $(`num-${k}`).textContent   = "???";
-    $(`num-${k}`).classList.remove("shown");
-    $(`imgel-${k}`).style.display = "none";
-    $(`ph-${k}`).style.display    = "none";
-    $(`shim${k}`).style.display   = "flex";
-    const wiki = $(`wiki-${k}`);
-    wiki.style.pointerEvents = "none";
-    wiki.style.opacity = "0";
-  }
-  requestAnimationFrame(() => {
-    $("side-A").closest(".side-wrap").style.animation = "";
-    $("side-B").closest(".side-wrap").style.animation = "";
-  });
+    title.classList.add("is-skeleton");
+    const media = $(`media-${k}`);
+    media.dataset.state = "loading";
+    media.style.background = "";
+    $(`img-${k}`).removeAttribute("src");
+    $(`bar-${k}`).style.width = "0";
+    const link = $(`link-${k}`);
+    link.setAttribute("aria-disabled", "true");
+    link.removeAttribute("href");
+  },
 
-  try {
-    if (pool.length < 10) pool = await fetchPool();
-    if (pool.length < 2)  throw new Error("Pool vide");
+  /* Carte prête : titre, image (ou initiale), lien */
+  setCard(k, { title, img }) {
+    const t = $(`title-${k}`);
+    t.textContent = title;
+    t.classList.remove("is-skeleton");
 
-    let iA, iB;
-    do {
-      iA = Math.floor(Math.random() * pool.length);
-      iB = Math.floor(Math.random() * pool.length);
-    } while (iA === iB);
+    const media = $(`media-${k}`);
+    const showEmpty = () => {
+      media.dataset.state = "empty";
+      media.dataset.initial = title.charAt(0).toUpperCase();
+      media.style.background = this.gradient(title);
+    };
 
-    const aA = pool[iA], aB = pool[iB];
-    [iA, iB].sort((a, b) => b - a).forEach(i => pool.splice(i, 1));
-
-    const tA = aA.article.replaceAll("_", " ");
-    const tB = aB.article.replaceAll("_", " ");
-
-    const wikiMap        = await fetchWikiImgs([tA, tB]);
-    const [imgA, imgB]   = await Promise.all([resolveImg(wikiMap, tA), resolveImg(wikiMap, tB)]);
-
-    const swap = Math.random() > 0.5;
-    ld = swap ? { title: tB, views: aB.views, img: imgB } : { title: tA, views: aA.views, img: imgA };
-    rd = swap ? { title: tA, views: aA.views, img: imgA } : { title: tB, views: aB.views, img: imgB };
-
-    winnerKey = aA.views >= aB.views
-      ? (swap ? "B" : "A")
-      : (swap ? "A" : "B");
-
-    setCard("A", ld.title, ld.img);
-    setCard("B", rd.title, rd.img);
-
-    fb.className   = "feedback";
-    fb.textContent = "";
-
-    saveState();
-
-  } catch (err) {
-    console.error(err);
-    fb.className   = "feedback ko";
-    fb.textContent = "⚡ Erreur de chargement. Vérifiez votre connexion.";
-    nextBtn.classList.add("on");
-    nextBtn.disabled = false;
-    ld = null; rd = null;
-    for (const k of ["A", "B"]) {
-      $(`shim${k}`).style.display = "none";
-      $(`ph-${k}`).style.display  = "flex";
+    if (img) {
+      const el = $(`img-${k}`), probe = new Image();
+      media.dataset.state = "loading";
+      probe.onload  = () => { el.src = img; el.alt = ""; media.dataset.state = "ready"; };
+      probe.onerror = showEmpty;
+      probe.src = img;
+    } else {
+      showEmpty();
     }
-  }
-}
 
-/* ── Events ── */
-$("side-A").addEventListener("click", () => pick("A"));
-$("side-B").addEventListener("click", () => pick("B"));
-$("btn-next").addEventListener("click", loadQ);
+    const link = $(`link-${k}`);
+    link.href = `https://fr.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(" ", "_"))}`;
+    link.removeAttribute("aria-disabled");
+    link.setAttribute("aria-label", `Voir « ${title} » sur Wikipédia`);
+    $(`pick-${k}`).setAttribute("aria-label", `Choisir : ${title}`);
+    $(`pick-${k}`).disabled = false;
+  },
 
-// Force la perte du focus sur tout élément cliqué (évite le re-déclenchement au clavier)
-document.addEventListener("click", () => {
-  if (document.activeElement && document.activeElement !== document.body) {
-    document.activeElement.blur();
-  }
-});
+  /* Résultat : contours, vues, barres proportionnelles, écart */
+  showResult(duel) {
+    const max = Math.max(duel.A.views, duel.B.views);
+    this.keys.forEach(k => {
+      $(`card-${k}`).classList.add("is-done", k === duel.winner ? "is-win" : "is-lose");
+      $(`pick-${k}`).disabled = true;
+      $(`num-${k}`).textContent = fmt(duel[k].views);
+      requestAnimationFrame(() => { $(`bar-${k}`).style.width = `${(duel[k].views / max) * 100}%`; });
+    });
+    const vs = $("vs");
+    vs.textContent = `×${this.ratio(duel)}`;
+    vs.classList.add("is-ratio");
+  },
 
-/* ── Raccourcis clavier ── */
-document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowLeft") {
-    e.preventDefault();
-    pick("A");
-  } else if (e.key === "ArrowRight") {
-    e.preventDefault();
-    pick("B");
-  } else if (e.key === " " || e.key === "Enter") {
-    e.preventDefault();
-    
-    // On retire le focus actif pour neutraliser tout clic natif du navigateur sur un bouton
-    if (document.activeElement) {
-      document.activeElement.blur();
+  resetVs() {
+    const vs = $("vs");
+    vs.textContent = "VS";
+    vs.classList.remove("is-ratio");
+  },
+
+  ratio(duel) {
+    const w = duel[duel.winner].views, l = duel[duel.winner === "A" ? "B" : "A"].views;
+    return (w / l).toFixed(1).replace(".", ",");
+  },
+
+  feedback(kind, icon, text) {
+    $("feedback").className = `feedback${kind ? ` is-${kind}` : ""}`;
+    $("fb-ic").textContent = icon;
+    $("fb-text").textContent = text;
+  },
+
+  setNext(enabled) { $("next").disabled = !enabled; },
+
+  stats({ streak, best, rounds, correct }) {
+    $("s-streak").textContent = streak;
+    $("s-best").textContent   = best;
+    $("s-acc").textContent    = rounds ? `${Math.round((correct / rounds) * 100)} %` : "–";
+    $("stat-streak").classList.toggle("is-hot", streak >= 3);
+  },
+};
+
+/* ── GAME ───────────────────────────────────────────────────── */
+const Game = {
+  stats : { streak: 0, best: 0, rounds: 0, correct: 0 },
+  duel  : null,      // { A:{title,views,img}, B:{…}, winner:"A"|"B", chosen, answered }
+  pool  : [],
+  loading: false,
+
+  init() {
+    View.init((k) => this.pick(k));
+    $("next").addEventListener("click", () => this.loadQuestion());
+    document.addEventListener("keydown", (e) => this.onKey(e));
+
+    const saved = Store.read();
+    if (saved?.stats) {
+      const s = saved.stats;
+      this.stats = {
+        streak : Number(s.streak)  || 0,
+        best   : Number(s.best)    || 0,
+        rounds : Number(s.round)   || 0,
+        correct: Number(s.correct) || 0,
+      };
     }
-    
-    if ($("btn-next").classList.contains("on")) {
-      loadQ();
+    View.stats(this.stats);
+
+    saved?.current ? this.restore(saved.current) : this.loadQuestion();
+  },
+
+  /* Format de sauvegarde inchangé (compatible avec l'ancienne version) */
+  save() {
+    const d = this.duel;
+    Store.write({
+      stats: { streak: this.stats.streak, best: this.stats.best, round: this.stats.rounds, correct: this.stats.correct },
+      current: d ? { answered: d.answered, chosenKey: d.chosen, winnerKey: d.winner, left: d.A, right: d.B } : null,
+    });
+  },
+
+  restore(saved) {
+    this.duel = { A: saved.left, B: saved.right, winner: saved.winnerKey, chosen: saved.chosenKey, answered: !!saved.answered };
+    View.keys.forEach(k => View.setCard(k, this.duel[k]));
+    View.setBusy(false);
+    View.resetVs();
+    if (this.duel.answered) {
+      View.showResult(this.duel);
+      this.announce();
+      View.setNext(true);
+    } else {
+      View.feedback("", "?", "Choisis une page pour voir la réponse.");
+      View.setNext(false);
     }
-  }
-});
+  },
 
-/* ── Démarrage ── */
-const saved = loadState();
+  async loadQuestion() {
+    if (this.loading) return;
+    this.loading = true;
+    this.duel = null;
+    View.setBusy(true);
+    View.setNext(false);
+    View.resetVs();
+    View.feedback("", "…", "Chargement…");
+    View.keys.forEach(k => View.setLoading(k));
 
-if (saved?.stats) {
-  state.streak  = Number(saved.stats.streak)  || 0;
-  state.best    = Number(saved.stats.best)    || 0;
-  state.round   = Number(saved.stats.round)   || 0;
-  state.correct = Number(saved.stats.correct) || 0;
-}
-syncUI();
+    try {
+      if (this.pool.length < CONFIG.POOL_MIN) this.pool = await Api.fetchPool();
+      if (this.pool.length < 2) throw new Error("Pool vide");
 
-if (saved?.current) {
-  restoreCurrent(saved.current);
-} else {
-  loadQ();
-}
+      /* Deux articles distincts tirés au hasard, retirés du pool */
+      const [a, b] = this.takeTwo();
+      const titleA = a.article.replaceAll("_", " "), titleB = b.article.replaceAll("_", " ");
+      const map = await Api.fetchWikiImages([titleA, titleB]);
+      const [imgA, imgB] = await Promise.all([Api.resolveImage(map, titleA), Api.resolveImage(map, titleB)]);
+
+      const items = [{ title: titleA, views: a.views, img: imgA }, { title: titleB, views: b.views, img: imgB }];
+      if (Math.random() > 0.5) items.reverse();
+      const [A, B] = items;
+      this.duel = { A, B, winner: A.views >= B.views ? "A" : "B", chosen: null, answered: false };
+
+      View.keys.forEach(k => View.setCard(k, this.duel[k]));
+      View.feedback("", "?", "Choisis une page pour voir la réponse.");
+      this.save();
+    } catch (err) {
+      console.error(err);
+      View.feedback("ko", "!", "Erreur de chargement. Vérifie ta connexion puis réessaie.");
+      View.keys.forEach(k => View.setCard(k, { title: "—", img: null }));
+      View.keys.forEach(k => { $(`pick-${k}`).disabled = true; });
+      View.setNext(true);
+    } finally {
+      View.setBusy(false);
+      this.loading = false;
+    }
+  },
+
+  takeTwo() {
+    const i = Math.floor(Math.random() * this.pool.length);
+    let j;
+    do { j = Math.floor(Math.random() * this.pool.length); } while (j === i);
+    const picked = [this.pool[i], this.pool[j]];
+    [i, j].sort((x, y) => y - x).forEach(n => this.pool.splice(n, 1));
+    return picked;
+  },
+
+  pick(k) {
+    const d = this.duel;
+    if (!d || d.answered || this.loading) return;
+    d.answered = true;
+    d.chosen = k;
+
+    const ok = k === d.winner;
+    this.stats.rounds++;
+    if (ok) {
+      this.stats.streak++;
+      this.stats.correct++;
+      this.stats.best = Math.max(this.stats.best, this.stats.streak);
+    } else {
+      this.stats.streak = 0;
+    }
+
+    View.showResult(d);
+    this.announce();
+    View.stats(this.stats);
+    View.setNext(true);
+    $("next").focus({ preventScroll: true });
+    this.save();
+  },
+
+  announce() {
+    const d = this.duel, w = d[d.winner].title, r = View.ratio(d);
+    d.chosen === d.winner
+      ? View.feedback("ok", "✓", `Bien joué : « ${w} » est ${r} fois plus consultée.`)
+      : View.feedback("ko", "✕", `Raté : c'était « ${w} », ${r} fois plus consultée.`);
+  },
+
+  onKey(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "ArrowLeft")  { e.preventDefault(); this.pick("A"); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); this.pick("B"); }
+    else if ((e.key === "Enter" || e.key === " ") && this.duel?.answered && document.activeElement === document.body) {
+      e.preventDefault();
+      this.loadQuestion();
+    }
+  },
+};
+
+/* ── THEME ──────────────────────────────────────────────────── */
+const Theme = {
+  ICONS: {
+    sun : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>`,
+    moon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`,
+  },
+  btn: null,
+
+  init() {
+    this.btn = $("theme");
+    this.render();
+    this.btn.addEventListener("click", () => {
+      const next = this.current() === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      Store.write({ theme: next });
+      this.render();
+    });
+  },
+  current() { return document.documentElement.dataset.theme === "dark" ? "dark" : "light"; },
+  render() {
+    const dark = this.current() === "dark";
+    this.btn.innerHTML = dark ? this.ICONS.sun : this.ICONS.moon;
+    this.btn.setAttribute("aria-label", dark ? "Passer en mode clair" : "Passer en mode sombre");
+  },
+};
+
+/* ── DÉMARRAGE ──────────────────────────────────────────────── */
+Theme.init();
+Game.init();
